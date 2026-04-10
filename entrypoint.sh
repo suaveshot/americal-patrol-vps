@@ -22,13 +22,13 @@ echo "America/Los_Angeles" > /etc/timezone
 cat > /etc/cron.d/americal-patrol << 'CRONEOF'
 # Americal Patrol VPS Automations (Pacific Time)
 # Sales Pipeline - hourly lightweight check
-0 * * * * root cd /app && python -m sales_pipeline.run_pipeline --hourly >> /var/log/ap-sales-hourly.log 2>&1
+0 * * * * root cd /app && python3 -m sales_pipeline.run_pipeline --hourly >> /var/log/ap-sales-hourly.log 2>&1
 # Sales Pipeline - daily follow-ups + digest (Mon-Fri 8 AM)
-0 8 * * 1-5 root cd /app && python -m sales_pipeline.run_pipeline --daily >> /var/log/ap-sales-daily.log 2>&1
+0 8 * * 1-5 root cd /app && python3 -m sales_pipeline.run_pipeline --daily >> /var/log/ap-sales-daily.log 2>&1
 # Email Assistant - hourly inbox check
-30 * * * * root cd /app && python email_assistant/email_monitor.py >> /var/log/ap-email.log 2>&1
+30 * * * * root cd /app && python3 email_assistant/email_monitor.py >> /var/log/ap-email.log 2>&1
 # Watchdog - every 60 min
-15 * * * * root cd /app && python watchdog/watchdog.py >> /var/log/ap-watchdog.log 2>&1
+15 * * * * root cd /app && python3 watchdog/watchdog.py >> /var/log/ap-watchdog.log 2>&1
 
 CRONEOF
 chmod 0644 /etc/cron.d/americal-patrol
