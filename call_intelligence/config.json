@@ -1,0 +1,11 @@
+{
+  "scan_interval_hours": 1,
+  "scan_lookback_hours": 2,
+  "min_call_duration_seconds": 10,
+  "whisper_model": "base",
+  "claude_model": "claude-sonnet-4-6",
+  "analysis_prompt_version": 1,
+  "backfill_complete": false,
+  "backfill_last_contact_index": 0,
+  "recordings_retention_days": 90
+}

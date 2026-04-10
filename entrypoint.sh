@@ -1,6 +1,6 @@
 #!/bin/bash
 
-mkdir -p /app/data /app/pipeline_events
+mkdir -p /app/data /app/pipeline_events /app/data/call_intelligence/recordings
 
 # Decode OAuth tokens from environment variables (first run only)
 if [ ! -f /app/patrol_automation/token.json ] && [ -n "$GOOGLE_TOKEN_B64" ]; then
@@ -19,6 +19,9 @@ cat > /etc/cron.d/ap << 'CRONEOF'
 */15 * * * * root cd /app && python3 -m sales_pipeline.transcribe_calls >> /var/log/ap-transcribe.log 2>&1
 30 * * * * root cd /app && python3 email_assistant/email_monitor.py >> /var/log/ap-email.log 2>&1
 15 * * * * root cd /app && python3 watchdog/watchdog.py >> /var/log/ap-watchdog.log 2>&1
+# Call Intelligence
+5 * * * * root cd /app && python3 -m call_intelligence.run_ingestion >> /var/log/ap-call-intel.log 2>&1
+0 13 * * * root cd /app && python3 -m call_intelligence.sync_deals >> /var/log/ap-call-intel.log 2>&1
 CRONEOF
 chmod 0644 /etc/cron.d/ap
 cron

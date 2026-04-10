@@ -215,6 +215,16 @@ PIPELINES = [
         "temp_files":     [],
         "excel_files":    [],
     },
+    {
+        "id":             "call_intelligence",
+        "name":           "Call Intelligence",
+        "log_file":       Path("/var/log/ap-call-intel.log"),
+        "interval_hours": 2,     # Hourly, allow 2h grace
+        "schedule_days":  list(range(7)),   # Daily
+        "token_files":    [],
+        "temp_files":     [],
+        "excel_files":    [],
+    },
 ]
 
 LOG_TS_RE = re.compile(r"^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]")
