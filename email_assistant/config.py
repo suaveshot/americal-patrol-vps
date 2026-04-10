@@ -23,6 +23,24 @@ SEARCH_WINDOW_HOURS  = 2
 CLAUDE_MODEL         = "claude-sonnet-4-6"
 CLAUDE_MAX_TOKENS    = 1500
 
+# -- Two-tier confidence thresholds -----------------------------------------
+CONFIDENCE_THRESHOLD_KNOWN   = 0.70   # Known client domains -- draft more
+CONFIDENCE_THRESHOLD_UNKNOWN = 0.85   # New/unknown senders -- stay cautious
+
+# -- Escalation aging thresholds (hours) ------------------------------------
+AGING_HOURS_BUSINESS   = 4     # Business hours: remind after 4h
+AGING_HOURS_OFFHOURS   = 8     # Off-hours: remind after 8h
+AGING_URGENT_HOURS     = 24    # Urgent reminder after 24h regardless
+BUSINESS_HOURS_START   = 9     # 9 AM
+BUSINESS_HOURS_END     = 17    # 5 PM
+
+# -- Urgency detection ------------------------------------------------------
+import re as _re
+URGENCY_PATTERN = _re.compile(
+    r"\b(asap|urgent|emergency|immediately|critical|time[- ]sensitive|right away)\b",
+    _re.IGNORECASE,
+)
+
 # ── Signature (matches patrol_automation/draft_composer.py) ──────────────────
 SIGNATURE = (
     "Best Regards,\n"
@@ -112,8 +130,9 @@ CLIENT_DOMAINS = _load_client_domains()
 
 def is_client_email(email_data):
     """
-    Return True if this email should be analyzed by the classifier.
-    Returns False for noise (newsletters, noreply, internal, etc.).
+    Return (passes_filter, is_known_client) tuple.
+    passes_filter: True if email should be analyzed by classifier.
+    is_known_client: True if sender domain is in CLIENT_DOMAINS.
     """
     sender = (email_data.get("from") or "").lower()
     subject = (email_data.get("subject") or "").lower()
@@ -122,30 +141,30 @@ def is_client_email(email_data):
     # Reject: noise Gmail labels
     for label in labels:
         if label in NOISE_GMAIL_LABELS:
-            return False
+            return False, False
 
     # Reject: noise sender patterns
     for pattern in NOISE_SENDER_PATTERNS:
         if pattern in sender:
-            return False
+            return False, False
 
     # Reject: internal domains
     sender_domain = sender.split("@")[-1].rstrip(">").strip()
     for domain in INTERNAL_DOMAINS:
         if sender_domain == domain:
-            return False
+            return False, False
 
     # Reject: noise subject patterns
     for pattern in NOISE_SUBJECT_PATTERNS:
         if pattern in subject:
-            return False
+            return False, False
 
-    # Accept: known client domain (boost)
+    # Known client domain
     if sender_domain in CLIENT_DOMAINS:
-        return True
+        return True, True
 
-    # Accept: anything that passed all reject filters
-    return True
+    # Passed all reject filters but not a known client
+    return True, False
 
 
 # ── Company context for Claude system prompt ─────────────────────────────────

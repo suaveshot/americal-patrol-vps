@@ -1,7 +1,8 @@
 """
-Email Assistant (Larry) — Main Entry Point
+Email Assistant (Larry) V2 -- Main Entry Point
 Checks americalpatrol@gmail.com for client emails, drafts responses,
-and escalates uncertain ones to Sam.
+escalates uncertain ones to Sam, processes Sam's feedback, tracks edits,
+and sends daily digest.
 
 Usage:
     python email_assistant/email_monitor.py
@@ -26,15 +27,40 @@ from email_assistant.config import (
     SEARCH_WINDOW_HOURS,
     SIGNATURE,
     SAM_EMAIL,
+    URGENCY_PATTERN,
     is_client_email,
 )
 from email_assistant.gmail_client import (
     get_gmail_service,
     fetch_unread_emails,
+    fetch_thread_messages,
+    fetch_sam_replies,
     create_reply_draft,
     send_escalation_email,
+    send_html_email,
+    send_reply_in_thread,
 )
 from email_assistant.classifier import analyze_and_draft
+from email_assistant.escalation_tracker import (
+    record_escalation,
+    find_escalation_for_reply,
+    resolve_escalation,
+    prune_old_escalations,
+)
+from email_assistant.feedback_parser import parse_sam_response
+from email_assistant.digest import (
+    check_escalation_aging,
+    send_daily_digest,
+)
+from email_assistant.learning_tracker import (
+    record_draft,
+    check_for_edits,
+    update_style_guide,
+)
+from email_assistant.client_tracker import (
+    record_interaction,
+    get_client_context,
+)
 
 # Event bus for cross-pipeline integration
 try:
@@ -43,7 +69,7 @@ except ImportError:
     publish_event = None
 
 
-# ── Logging ──────────────────────────────────────────────────────────────────
+# -- Logging ------------------------------------------------------------------
 def log(msg):
     ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     line = f"[{ts}] {msg}"
@@ -55,22 +81,25 @@ def log(msg):
         pass
 
 
-# ── State management ─────────────────────────────────────────────────────────
+# -- State management ---------------------------------------------------------
 def load_state():
     if STATE_FILE.exists():
         try:
             return json.loads(STATE_FILE.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, OSError):
-            log("WARNING: Corrupt state file — starting fresh")
+            log("WARNING: Corrupt state file -- starting fresh")
     return {
-        "version": 1,
+        "version": 2,
         "processed_ids": {},
+        "pending_escalations": {},
+        "draft_log": {},
         "last_run": None,
         "stats": {
             "total_processed": 0,
             "total_drafted": 0,
             "total_escalated": 0,
             "total_skipped": 0,
+            "total_feedback_processed": 0,
         },
     }
 
@@ -84,38 +113,90 @@ def save_state(state):
 
 
 def prune_old_ids(state, days=7):
-    """Remove processed IDs older than `days` to prevent unbounded growth."""
     cutoff = (datetime.now() - timedelta(days=days)).isoformat()
-    old_ids = state["processed_ids"]
+    old_ids = state.get("processed_ids", {})
     state["processed_ids"] = {
         mid: ts for mid, ts in old_ids.items() if ts > cutoff
     }
 
 
-# ── Main ─────────────────────────────────────────────────────────────────────
-def run():
-    log("=" * 60)
-    log("Email Assistant (Larry) — Starting")
-    log("=" * 60)
+# -- Phase 1: Process Sam's feedback on escalations --------------------------
+def process_feedback(service, state):
+    """Check if Sam has replied to any escalation emails and act on it."""
+    replies = fetch_sam_replies(service, SAM_EMAIL, hours=SEARCH_WINDOW_HOURS)
+    if not replies:
+        return
 
-    # Connect to Gmail
-    try:
-        service = get_gmail_service()
-    except Exception as e:
-        log(f"FATAL: Could not connect to Gmail: {e}")
-        return False
+    log(f"Checking {len(replies)} potential feedback replies from Sam")
 
-    # Load state
-    state = load_state()
-    prune_old_ids(state)
+    for reply in replies:
+        reply_id = reply["id"]
 
-    # Fetch unread emails
+        # Don't re-process
+        if reply_id in state.get("processed_ids", {}):
+            continue
+
+        esc_key = find_escalation_for_reply(state, reply)
+        if not esc_key:
+            continue
+
+        esc = state["pending_escalations"][esc_key]
+        original_email = esc.get("original_email", {})
+        proposed = esc.get("proposed_response", "")
+
+        result = parse_sam_response(reply.get("body", ""))
+        action = result["action"]
+        log(f"  Feedback for '{original_email.get('subject', '?')}': {action}")
+
+        if action == "send_proposed":
+            try:
+                send_reply_in_thread(service, original_email, proposed, SIGNATURE)
+                resolve_escalation(state, esc_key, "sent_proposed")
+                log(f"  -> Sent proposed response")
+            except Exception as e:
+                log(f"  -> ERROR sending proposed: {e}")
+                continue
+
+        elif action == "send_custom":
+            custom_body = result.get("custom_body", "")
+            try:
+                create_reply_draft(service, original_email, custom_body, SIGNATURE)
+                resolve_escalation(state, esc_key, "sent_custom", custom_body[:200])
+                log(f"  -> Draft created with Sam's edits")
+            except Exception as e:
+                log(f"  -> ERROR creating custom draft: {e}")
+                continue
+
+        elif action == "skip":
+            resolve_escalation(state, esc_key, "skipped")
+            log(f"  -> Skipped per Sam's instruction")
+
+        elif action == "draft":
+            if proposed:
+                try:
+                    create_reply_draft(service, original_email, proposed, SIGNATURE)
+                    resolve_escalation(state, esc_key, "drafted", result.get("reason", ""))
+                    log(f"  -> Ambiguous reply -- draft created for review")
+                except Exception as e:
+                    log(f"  -> ERROR creating draft: {e}")
+                    continue
+            else:
+                resolve_escalation(state, esc_key, "drafted", "no proposed response")
+                log(f"  -> Ambiguous reply, no proposed response to draft")
+
+        # Mark the feedback reply as processed
+        state["processed_ids"][reply_id] = datetime.now().isoformat()
+        state["stats"]["total_feedback_processed"] = state["stats"].get("total_feedback_processed", 0) + 1
+
+
+# -- Phase 2: Process new incoming emails -------------------------------------
+def process_new_emails(service, state):
+    """Fetch and classify new emails."""
     try:
         emails = fetch_unread_emails(service, hours=SEARCH_WINDOW_HOURS)
     except Exception as e:
         log(f"ERROR fetching emails: {e}")
-        save_state(state)
-        return False
+        return
 
     log(f"Found {len(emails)} unread email(s) in last {SEARCH_WINDOW_HOURS}h")
 
@@ -126,27 +207,42 @@ def run():
     for email in emails:
         email_id = email["id"]
 
-        # Skip already processed
-        if email_id in state["processed_ids"]:
+        if email_id in state.get("processed_ids", {}):
             continue
 
         sender = email.get("from", "unknown")
         subject = email.get("subject", "(no subject)")
         log(f"Processing: {subject} (from: {sender})")
 
-        # Filter noise
-        if not is_client_email(email):
+        # Filter noise (returns tuple)
+        passes_filter, is_known_client = is_client_email(email)
+        if not passes_filter:
             log(f"  -> Filtered out (noise)")
             state["processed_ids"][email_id] = datetime.now().isoformat()
             state["stats"]["total_skipped"] += 1
             skipped += 1
             continue
 
+        # Detect urgency
+        is_urgent = bool(
+            URGENCY_PATTERN.search(subject) or
+            URGENCY_PATTERN.search(email.get("body", "")[:500])
+        )
+        if is_urgent:
+            log(f"  -> URGENT email detected")
+
+        # Fetch thread context
+        thread_context = fetch_thread_messages(service, email["thread_id"])
+
         # Analyze with Claude
         try:
-            result = analyze_and_draft(email)
+            result = analyze_and_draft(
+                email,
+                is_known_client=is_known_client,
+                thread_context=thread_context,
+            )
         except Exception as e:
-            log(f"  -> Classifier error: {e} — skipping (will retry next run)")
+            log(f"  -> Classifier error: {e} -- skipping (will retry next run)")
             continue
 
         action = result.get("action", "skip")
@@ -157,7 +253,10 @@ def run():
         log(f"  -> Action: {action} | Confidence: {confidence:.2f} | Category: {category}")
         log(f"  -> Reasoning: {reasoning}")
 
-        # Publish lead inquiries to event bus for sales pipeline ingestion
+        # Record client interaction
+        record_interaction(email, category, action)
+
+        # Publish lead inquiries to event bus
         if publish_event and category in ("service_inquiry", "new_lead", "quote_request"):
             try:
                 publish_event("email_assistant", "lead_inquiry", {
@@ -172,7 +271,6 @@ def run():
                 log(f"  -> Event bus publish failed: {e}")
 
         if action == "draft_response":
-            # Create reply draft in Gmail
             try:
                 draft = create_reply_draft(
                     service,
@@ -184,18 +282,30 @@ def run():
                 log(f"  -> Draft created (ID: {draft_id})")
                 drafted += 1
                 state["stats"]["total_drafted"] += 1
+
+                # Record draft for edit tracking
+                record_draft(
+                    state, email_id,
+                    result.get("draft_body", ""),
+                    sender, subject,
+                )
             except Exception as e:
                 log(f"  -> ERROR creating draft: {e}")
-                # Don't mark as processed — retry next run
                 continue
 
         elif action == "escalate":
-            # Send escalation email directly to Sam
             try:
-                esc_subject = f"[Larry] Need guidance: {subject}"
+                prefix = "[Larry] URGENT:" if is_urgent else "[Larry] Need guidance:"
+                esc_subject = f"{prefix} {subject}"
                 esc_body = _build_escalation_body(email, result)
-                send_escalation_email(service, SAM_EMAIL, esc_subject, esc_body)
+                sent = send_escalation_email(service, SAM_EMAIL, esc_subject, esc_body)
+                esc_msg_id = sent.get("id", email_id)
                 log(f"  -> Escalation email sent to {SAM_EMAIL}")
+
+                # Track the escalation
+                record_escalation(state, esc_msg_id, email, result)
+                state["pending_escalations"][esc_msg_id]["escalation_thread_id"] = sent.get("threadId", "")
+
                 escalated += 1
                 state["stats"]["total_escalated"] += 1
             except Exception as e:
@@ -203,7 +313,8 @@ def run():
                 continue
 
         else:
-            log(f"  -> Skipped")
+            skip_reason = result.get("skip_reason", "no reason")
+            log(f"  -> Skipped (reason: {skip_reason})")
             skipped += 1
             state["stats"]["total_skipped"] += 1
 
@@ -211,16 +322,26 @@ def run():
         state["processed_ids"][email_id] = datetime.now().isoformat()
         state["stats"]["total_processed"] += 1
 
-    # Save state
-    save_state(state)
-
-    log(f"Done. Drafted: {drafted} | Escalated: {escalated} | Skipped: {skipped}")
-    log("=" * 60)
-    return True
+    log(f"New emails: Drafted: {drafted} | Escalated: {escalated} | Skipped: {skipped}")
 
 
+# -- Phase 3: Housekeeping ---------------------------------------------------
+def run_housekeeping(service, state):
+    """Aging reminders, digest, edit learning, escalation pruning."""
+    check_escalation_aging(service, state, send_escalation_email, log)
+    send_daily_digest(service, state, send_html_email, log)
+    check_for_edits(service, state, log)
+
+    learning_dir = Path(__file__).resolve().parent / "learning"
+    edit_count = len(list(learning_dir.glob("edit_*.json"))) if learning_dir.exists() else 0
+    if edit_count >= 3 and edit_count % 10 == 0:
+        update_style_guide(log)
+
+    prune_old_escalations(state)
+
+
+# -- Escalation body builder -------------------------------------------------
 def _build_escalation_body(email, result):
-    """Build the escalation email body for Sam."""
     lines = [
         "Hi Sam,",
         "",
@@ -242,7 +363,6 @@ def _build_escalation_body(email, result):
         "",
     ]
 
-    # Include proposed response if one was drafted
     draft_body = result.get("draft_body", "").strip()
     if draft_body:
         lines.extend([
@@ -253,16 +373,79 @@ def _build_escalation_body(email, result):
 
     lines.extend([
         "--- WHAT I NEED ---",
-        "Please let me know:",
-        "1. Should I send this response as-is?",
-        "2. Should I modify it? (reply with edits)",
-        "3. Should I skip this one? (you'll handle it directly)",
+        "Please reply to this email with:",
+        "  1 = send my proposed response as-is",
+        "  2 = type your edits (I'll create a draft for you to review)",
+        "  3 = skip (you'll handle it directly)",
         "",
         "Thanks,",
         "Larry",
     ])
 
     return "\n".join(lines)
+
+
+# -- Main entry point --------------------------------------------------------
+def run():
+    log("=" * 60)
+    log("Email Assistant (Larry) V2 -- Starting")
+    log("=" * 60)
+
+    try:
+        service = get_gmail_service()
+    except Exception as e:
+        log(f"FATAL: Could not connect to Gmail: {e}")
+        return False
+
+    state = load_state()
+    prune_old_ids(state)
+
+    # Ensure state has all required keys (upgrade from V1)
+    state.setdefault("pending_escalations", {})
+    state.setdefault("draft_log", {})
+    state["stats"].setdefault("total_feedback_processed", 0)
+
+    # Phase 1: Process feedback from Sam
+    try:
+        process_feedback(service, state)
+    except Exception as e:
+        log(f"ERROR in feedback processing: {e}")
+
+    # Phase 2: Process new incoming emails
+    try:
+        process_new_emails(service, state)
+    except Exception as e:
+        log(f"ERROR processing new emails: {e}")
+
+    # Phase 3: Housekeeping (aging, digest, learning)
+    try:
+        run_housekeeping(service, state)
+    except Exception as e:
+        log(f"ERROR in housekeeping: {e}")
+
+    # Save state
+    save_state(state)
+
+    # Report health to watchdog
+    try:
+        from shared_utils.health_reporter import report_status
+        stats = state.get("stats", {})
+        report_status(
+            "email_assistant",
+            "ok",
+            f"Processed: {stats.get('total_processed', 0)} | "
+            f"Drafted: {stats.get('total_drafted', 0)} | "
+            f"Escalated: {stats.get('total_escalated', 0)} | "
+            f"Feedback: {stats.get('total_feedback_processed', 0)}",
+            metrics=stats,
+        )
+    except Exception:
+        pass
+
+    log("=" * 60)
+    log("Done")
+    log("=" * 60)
+    return True
 
 
 if __name__ == "__main__":
