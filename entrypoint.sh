@@ -16,6 +16,7 @@ fi
 cat > /etc/cron.d/ap << 'CRONEOF'
 0 * * * * root cd /app && python3 -m sales_pipeline.run_pipeline --hourly >> /var/log/ap-sales.log 2>&1
 0 15 * * 1-5 root cd /app && python3 -m sales_pipeline.run_pipeline --daily >> /var/log/ap-sales.log 2>&1
+*/15 * * * * root cd /app && python3 -m sales_pipeline.transcribe_calls >> /var/log/ap-transcribe.log 2>&1
 30 * * * * root cd /app && python3 email_assistant/email_monitor.py >> /var/log/ap-email.log 2>&1
 15 * * * * root cd /app && python3 watchdog/watchdog.py >> /var/log/ap-watchdog.log 2>&1
 CRONEOF
