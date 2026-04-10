@@ -1,0 +1,321 @@
+{
+  "_note": "Groups with the same recipients get ONE combined email with all their reports attached.",
+  "groups": [
+    {
+      "group_id": "transwestern_dan",
+      "recipients": [
+        "Dan.Patterson@transwestern.com",
+        "jp.palella@transwestern.com",
+        "Ashley.Horgan@transwestern.com"
+      ],
+      "accounts": [
+        {
+          "id": "206",
+          "name": "Stadium Plaza",
+          "address": "1630 S Sunkist St., Anaheim 92806"
+        },
+        {
+          "id": "210",
+          "name": "Towers Industrial Park",
+          "address": "14243-14343 Don Julian Rd., City of Industry"
+        },
+        {
+          "id": "T-22",
+          "name": "Buena Park Business Center",
+          "address": "6110-6190 Valley View / 6200-6210 Artesia Blvd."
+        },
+        {
+          "id": "T-23",
+          "name": "Pioneer Blvd",
+          "address": "10504-10540 Pioneer Blvd., Santa Fe Springs"
+        }
+      ],
+      "keywords": [
+        "stadium plaza",
+        "sunkist",
+        "towers industrial",
+        "don julian",
+        "buena park business",
+        "valley view",
+        "artesia",
+        "pioneer blvd",
+        "santa fe springs",
+        "206",
+        "210",
+        "T-22",
+        "T-23"
+      ]
+    },
+    {
+      "group_id": "transwestern_rebecca",
+      "recipients": [
+        "rebecca.mcmackin@transwestern.com",
+        "silvia.kraneiss@transwestern.com"
+      ],
+      "accounts": [
+        {
+          "id": "203",
+          "name": "Baldwin Place",
+          "address": "9852-9860 Baldwin Pl, El Monte, CA"
+        },
+        {
+          "id": "T-09",
+          "name": "Industry Centre",
+          "address": "17900-17990 E. Ajax Cir / 17930-17950 Rowland St., City of Industry"
+        }
+      ],
+      "keywords": [
+        "baldwin",
+        "el monte",
+        "industry centre",
+        "ajax",
+        "rowland",
+        "lawson",
+        "203",
+        "T-09"
+      ]
+    },
+    {
+      "group_id": "pcyc",
+      "recipients": [
+        "gm@pcyc.org",
+        "asstgm@pcyc.org"
+      ],
+      "accounts": [
+        {
+          "id": "204",
+          "name": "Pacific Corinthian Yacht Club",
+          "address": "2600 Harbor Blvd., Oxnard 93035"
+        }
+      ],
+      "keywords": [
+        "pacific corinthian",
+        "yacht club",
+        "pcyc",
+        "harbor blvd",
+        "204"
+      ]
+    },
+    {
+      "group_id": "peninsula_marina",
+      "recipients": [
+        "caitlin.bishop@suntex.com",
+        "christina.rocha@suntex.com"
+      ],
+      "accounts": [
+        {
+          "id": "209",
+          "name": "Peninsula Yacht Marina",
+          "address": "3700 Peninsula Rd., Oxnard 93035"
+        }
+      ],
+      "keywords": [
+        "peninsula",
+        "yacht marina",
+        "suntex",
+        "peninsula rd",
+        "209"
+      ],
+      "incident_only": true
+    },
+    {
+      "group_id": "westside_plaza",
+      "recipients": [
+        "lbrotman@yahoo.com"
+      ],
+      "accounts": [
+        {
+          "id": "201",
+          "name": "Westside Plaza",
+          "address": "450 S Ventura Rd., Oxnard, CA 93030"
+        }
+      ],
+      "keywords": [
+        "westside plaza",
+        "ventura rd",
+        "s ventura",
+        "400 s ventura",
+        "450 s ventura",
+        "201"
+      ]
+    },
+    {
+      "group_id": "john_reed",
+      "recipients": [
+        "deluna@longpoint.com"
+      ],
+      "accounts": [
+        {
+          "id": "212",
+          "name": "John Reed Industrial Park",
+          "address": "John Reed Court, City of Industry"
+        }
+      ],
+      "keywords": [
+        "john reed",
+        "longpoint",
+        "212"
+      ],
+      "incident_only": true
+    },
+    {
+      "group_id": "assisted_home_health",
+      "recipients": [
+        "awatari@assistedcares.com",
+        "jsolomon@assistedcares.com",
+        "helpdesk@assistedcares.com"
+      ],
+      "accounts": [
+        {
+          "id": "T-01",
+          "name": "Assisted Home Health & Hospice",
+          "address": "4450 Westinghouse St., Ventura 93003"
+        }
+      ],
+      "keywords": [
+        "assisted home health",
+        "hospice",
+        "westinghouse",
+        "T-01"
+      ],
+      "incident_only": true
+    },
+    {
+      "group_id": "harbor_lights",
+      "recipients": [
+        "wendellthompsonrealty@gmail.com",
+        "smork@pmpmanage.com",
+        "beautyandbighead@outlook.com",
+        "lisaaguailar@gmail.com",
+        "marilynmatthews@me.com",
+        "angieped418@gmail.com",
+        "breanna@fischercpa.com",
+        "gj@gjlunlimited.com"
+      ],
+      "accounts": [
+        {
+          "id": "T-02",
+          "name": "Harbor Lights HOA",
+          "address": "471 Harbor Lights Ln., Port Hueneme, CA 93041"
+        }
+      ],
+      "keywords": [
+        "harbor lights",
+        "port hueneme",
+        "T-02"
+      ]
+    },
+    {
+      "group_id": "nexon",
+      "recipients": [
+        "cdang@nexon.com"
+      ],
+      "accounts": [
+        {
+          "id": "T-03",
+          "name": "Nexon",
+          "address": "621 Hawaii St., El Segundo"
+        }
+      ],
+      "keywords": [
+        "nexon",
+        "hawaii st",
+        "el segundo",
+        "T-03"
+      ],
+      "incident_only": true
+    },
+    {
+      "group_id": "simpson_strong_tie",
+      "recipients": [
+        "jatorres@strongtie.com"
+      ],
+      "accounts": [
+        {
+          "id": "T-04",
+          "name": "Simpson Strong Tie",
+          "address": "2260 Camino Del Sol, Oxnard, CA 93030"
+        }
+      ],
+      "keywords": [
+        "simpson",
+        "strong tie",
+        "camino del sol",
+        "T-04"
+      ]
+    },
+    {
+      "group_id": "maulhardt",
+      "recipients": [
+        "anastasiastacydavis@gmail.com"
+      ],
+      "accounts": [
+        {
+          "id": "T-06",
+          "name": "Maulhardt Farm House",
+          "address": "1557 S Rice Ave., Oxnard 93033"
+        }
+      ],
+      "keywords": [
+        "maulhardt",
+        "rice ave",
+        "T-06"
+      ],
+      "incident_only": true
+    },
+    {
+      "group_id": "lax_firewatch",
+      "recipients": [
+        "khughes@prologis.com"
+      ],
+      "accounts": [
+        {
+          "id": "211",
+          "name": "LAX Logistics Firewatch",
+          "address": "5353-5343 W Imperial Hwy, Los Angeles, CA 90045"
+        }
+      ],
+      "keywords": [
+        "lax",
+        "lax logistics",
+        "lax fire watch",
+        "firewatch",
+        "fire watch",
+        "imperial hwy",
+        "211"
+      ]
+    },
+    {
+      "group_id": "manhattan_plaza",
+      "recipients": [
+        "mshepherd@manhattan-plaza.com",
+        "tsc@manhattan-plaza.com",
+        "pa@manhattan-plaza.com"
+      ],
+      "accounts": [
+        {
+          "id": "T-17",
+          "name": "Manhattan Plaza",
+          "address": "111 N. Sepulveda Blvd., Manhattan Beach"
+        }
+      ],
+      "keywords": [
+        "manhattan plaza",
+        "sepulveda",
+        "T-17"
+      ]
+    }
+  ],
+  "_no_email_accounts": [
+    {
+      "id": "207",
+      "name": "United Pacific Bank",
+      "note": "Phone only: 626-965-6230"
+    },
+    {
+      "id": "T-05",
+      "name": "LAX Logistics (old entry — now active as group lax_firewatch)",
+      "note": "Moved to active groups. Kari Hughes: khughes@prologis.com"
+    }
+  ]
+}

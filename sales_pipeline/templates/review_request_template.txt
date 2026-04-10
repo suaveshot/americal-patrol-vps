@@ -1,0 +1,27 @@
+Subject: Quick favor, would you share your experience with Americal Patrol?
+
+Hi {{CONTACT_NAME}},
+
+Thank you for trusting Americal Patrol with the security at {{PROPERTY_NAME}}. We take pride in providing reliable, professional service and your satisfaction means a great deal to us.
+
+If you have a moment, we'd really appreciate a quick Google review. It helps other property managers in Ventura County find a security team they can count on.
+
+Leave a review here: https://g.page/r/CRLwh6tepYwDEAE/review
+
+It only takes about 30 seconds, and we're grateful for any feedback.
+
+Thank you,
+Don Burt
+Americal Patrol, Inc.
+(805) 515-3834
+americalpatrol.com
+
+
+---
+HOW TO USE THIS TEMPLATE:
+1. Replace {{CONTACT_NAME}} with the client's first name
+2. Replace {{PROPERTY_NAME}} with the property or community name
+3. Replace https://g.page/r/CRLwh6tepYwDEAE/review with your Google review link
+   (Find it: Google Maps > Your listing > "Ask for reviews" button > copy link)
+4. Send after a positive interaction — resolved an issue, good quarterly review, etc.
+5. Aim for 2-3 per month to build steady review velocity

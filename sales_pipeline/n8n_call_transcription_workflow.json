@@ -1,0 +1,209 @@
+{
+  "name": "GHL - Call Transcription Trigger",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "call-completed",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b2000001-0001-0001-0001-000000000001",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={ \"status\": \"ok\" }",
+        "options": {}
+      },
+      "id": "b2000001-0001-0001-0001-000000000002",
+      "name": "Respond 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [460, 160]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract contact ID from GHL webhook payload\nconst body = $input.first().json.body ?? $input.first().json;\n\n// GHL conversation webhook sends: contact_id, message, conversation, etc.\nconst contactId = body.contact_id ?? body.contactId ?? body.message?.contactId ?? '';\nconst messageType = body.message?.messageType ?? body.messageType ?? '';\nconst callStatus = body.message?.meta?.call?.status ?? '';\nconst callDuration = body.message?.meta?.call?.duration ?? 0;\n\n// Only process completed calls with some duration\nconst shouldProcess = messageType === 'TYPE_CALL' && callStatus === 'completed' && callDuration > 5;\n\nreturn [{ json: { contactId, messageType, callStatus, callDuration, shouldProcess } }];"
+      },
+      "id": "b2000001-0001-0001-0001-000000000003",
+      "name": "Extract Call Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [460, 420]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.shouldProcess }}",
+              "value2": true
+            }
+          ],
+          "string": [
+            {
+              "value1": "={{ $json.contactId }}",
+              "operation": "isNotEmpty"
+            }
+          ]
+        }
+      },
+      "id": "b2000001-0001-0001-0001-000000000004",
+      "name": "Is Valid Call?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [680, 420]
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ 'https://services.leadconnectorhq.com/contacts/' + $json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Version", "value": "2021-07-28" }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "b2000001-0001-0001-0001-000000000005",
+      "name": "Get Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [900, 340],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "GHL Header Auth"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get current tags and add pending-transcription\nconst contact = $input.first().json.contact ?? $input.first().json;\nconst currentTags = contact.tags ?? [];\nconst contactId = contact.id ?? $('Extract Call Data').first().json.contactId;\nconst contactName = contact.contactName ?? 'Unknown';\n\n// Don't add tag if already present\nif (currentTags.includes('pending-transcription')) {\n  return [{ json: { contactId, contactName, action: 'already_tagged', tags: currentTags } }];\n}\n\nconst newTags = [...currentTags, 'pending-transcription'];\nreturn [{ json: { contactId, contactName, action: 'tag_added', tags: newTags } }];"
+      },
+      "id": "b2000001-0001-0001-0001-000000000006",
+      "name": "Build Tag Update",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 340]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.action }}",
+              "value2": "tag_added"
+            }
+          ]
+        }
+      },
+      "id": "b2000001-0001-0001-0001-000000000007",
+      "name": "Needs Tagging?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1340, 340]
+    },
+    {
+      "parameters": {
+        "method": "PUT",
+        "url": "={{ 'https://services.leadconnectorhq.com/contacts/' + $json.contactId }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Version", "value": "2021-07-28" },
+            { "name": "Content-Type", "value": "application/json" }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            { "name": "tags", "value": "={{ $json.tags }}" }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "b2000001-0001-0001-0001-000000000008",
+      "name": "Add Tag to Contact",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1560, 260],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "",
+          "name": "GHL Header Auth"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          { "node": "Respond 200", "type": "main", "index": 0 },
+          { "node": "Extract Call Data", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Extract Call Data": {
+      "main": [
+        [
+          { "node": "Is Valid Call?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Is Valid Call?": {
+      "main": [
+        [
+          { "node": "Get Contact", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Get Contact": {
+      "main": [
+        [
+          { "node": "Build Tag Update", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Build Tag Update": {
+      "main": [
+        [
+          { "node": "Needs Tagging?", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "Needs Tagging?": {
+      "main": [
+        [
+          { "node": "Add Tag to Contact", "type": "main", "index": 0 }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}
