@@ -10,7 +10,7 @@ Usage:
     python -m sales_pipeline.run_pipeline --migrate
 
 --hourly:    Lightweight hourly check: recency boost for new leads + cancel-on-reply safety
---daily:     Run follow-ups (both phases) + send digest (Task Scheduler, 8 AM Tu-Th)
+--daily:     Run follow-ups (both phases) + send digest (Task Scheduler, 8 AM Mon-Fri)
 --generate:  Fetch cold leads, generate draft messages, email digest for review
 --send:      Send approved drafts from pipeline_drafts.json via GHL
 --proposal:  Generate a proposal from a JSON input file
@@ -107,8 +107,40 @@ def run_hourly():
     if cancelled:
         log.info("Cancelled %d scheduled messages due to replies", cancelled)
 
+    # 3. Scan for new inbound leads (web forms, phone calls, SMS)
+    inbound_added = 0
+    try:
+        from sales_pipeline.inbound_scanner import scan_inbound_leads
+        inbound = scan_inbound_leads(ghl, state)
+        for lead in inbound:
+            cid = lead["contact_id"]
+            if not get_contact(state, cid):
+                add_contact(
+                    state, cid,
+                    stage="discovered",
+                    channel="email",
+                    first_name=lead.get("first_name", ""),
+                    last_name=lead.get("last_name", ""),
+                    organization=lead.get("organization", ""),
+                    property_type=lead.get("property_type", "other"),
+                    email=lead.get("email", ""),
+                    phone=lead.get("phone", ""),
+                )
+                entry = get_contact(state, cid)
+                if entry:
+                    timing = calculate_engagement_time(state_entry=entry)
+                    entry.update(timing)
+                    entry["engagement_source"] = lead.get("engagement_source", "web_form")
+                    entry["engagement_velocity"] = lead.get("engagement_velocity", "fast")
+                inbound_added += 1
+        if inbound_added:
+            log.info("Inbound scanner: added %d new leads to pipeline", inbound_added)
+    except Exception as e:
+        log.warning("Inbound lead scan failed: %s", e)
+
     save_state(state)
-    log.info("=== Hourly check complete: %d new leads, %d cancelled ===", new_leads, cancelled)
+    log.info("=== Hourly check complete: %d new leads, %d inbound, %d cancelled ===",
+             new_leads, inbound_added, cancelled)
 
 
 # ---------------------------------------------------------------------------

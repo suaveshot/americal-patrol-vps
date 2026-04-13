@@ -72,6 +72,13 @@ BLOCKLIST_EMAILS = [
 
 BLOCKLIST_NAMES = [
     "test", "demo", "sample", "polesmoker", "asdf", "xxx",
+    "bait", "bate",
+]
+
+# Fake/placeholder org names that indicate spam
+BLOCKLIST_ORGS = [
+    "nil", "n/a", "none", "na", "unknown", "no company", "no org",
+    "test", "demo", "asdf", "xxx",
 ]
 
 # Organization types we don't service — auto-exclude from cold outreach
@@ -199,6 +206,10 @@ def _is_spam_or_job_seeker(contact: dict) -> bool:
         if blocked in full_name:
             return True
 
+    # International phone numbers — only allow US/Canada (+1)
+    if phone and not phone.startswith("+1"):
+        return True
+
     # No email and no phone — likely spam/incomplete
     if not email and not phone:
         return True
@@ -216,8 +227,12 @@ def _is_spam_or_job_seeker(contact: dict) -> bool:
     if not org:
         return True
 
+    # Block fake/placeholder org names (e.g., "Nil", "N/A", "None")
+    org_lower = org.lower().strip()
+    if org_lower in BLOCKLIST_ORGS:
+        return True
+
     # Exclude organization types we don't service (schools, churches, campuses)
-    org_lower = org.lower()
     for keyword in EXCLUDED_ORG_KEYWORDS:
         if keyword in org_lower:
             return True

@@ -103,6 +103,16 @@ PIPELINES = [
         "excel_files":    [],
     },
     {
+        "id":             "gbp_standalone",
+        "name":           "GBP Standalone",
+        "log_file":       BASE / "gbp_automation/automation.log",
+        "interval_hours": 192,
+        "schedule_days":  [0],
+        "token_files":    [BASE / "gbp_automation/gbp_token.json"],
+        "temp_files":     [],
+        "excel_files":    [],
+    },
+    {
         "id":             "ads",
         "name":           "Google Ads",
         "log_file":       BASE / "google_ads_automation/automation.log",
@@ -138,7 +148,7 @@ PIPELINES = [
         "name":           "Sales Pipeline",
         "log_file":       BASE / "sales_pipeline/automation.log",
         "interval_hours": 96,
-        "schedule_days":  [1, 2, 3],  # Tue-Thu
+        "schedule_days":  [0, 1, 2, 3, 4],  # Mon-Fri
         "token_files":    [],
         "temp_files":     [],
         "excel_files":    [],
@@ -210,16 +220,6 @@ PIPELINES = [
         "name":           "Call Transcription",
         "log_file":       BASE / "sales_pipeline/automation.log",
         "interval_hours": 2,     # Every 15 min, but allow 2h grace
-        "schedule_days":  list(range(7)),   # Daily
-        "token_files":    [],
-        "temp_files":     [],
-        "excel_files":    [],
-    },
-    {
-        "id":             "call_intelligence",
-        "name":           "Call Intelligence",
-        "log_file":       Path("/var/log/ap-call-intel.log"),
-        "interval_hours": 2,     # Hourly, allow 2h grace
         "schedule_days":  list(range(7)),   # Daily
         "token_files":    [],
         "temp_files":     [],
@@ -415,6 +415,16 @@ def run_health_checks():
 
     # Global fixes that apply regardless of pipeline
     global_fixes = _fix_missing_dirs()
+
+    # Clean up old event bus files (>30 days) — centralized here instead of per-pipeline
+    try:
+        sys.path.insert(0, str(BASE))
+        from shared_utils.event_bus import cleanup_old_events
+        deleted = cleanup_old_events(days=30)
+        if deleted:
+            log.info(f"[event_bus] Cleaned up {deleted} event file(s) older than 30 days")
+    except Exception as e:
+        log.warning(f"[event_bus] Cleanup failed: {e}")
 
     for p in PIPELINES:
         pid    = p["id"]
