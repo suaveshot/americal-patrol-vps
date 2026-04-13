@@ -9,8 +9,9 @@ from pathlib import Path
 # ── Paths ────────────────────────────────────────────────────────────────────
 BASE_DIR    = Path(__file__).resolve().parent
 PROJECT_DIR = BASE_DIR.parent
-STATE_FILE  = BASE_DIR / "email_state.json"
-LOG_FILE    = BASE_DIR / "automation.log"
+DATA_DIR    = PROJECT_DIR / "data"
+STATE_FILE  = DATA_DIR / "email_state.json"
+LOG_FILE    = DATA_DIR / "email_assistant.log"
 CLIENTS_JSON = PROJECT_DIR / "patrol_automation" / "clients.json"
 
 # ── Email addresses ──────────────────────────────────────────────────────────
@@ -19,7 +20,7 @@ SAM_EMAIL   = "salarcon@americalpatrol.com"
 
 # ── Classifier settings ─────────────────────────────────────────────────────
 CONFIDENCE_THRESHOLD = 0.85
-SEARCH_WINDOW_HOURS  = 2
+SEARCH_WINDOW_HOURS  = 4
 CLAUDE_MODEL         = "claude-sonnet-4-6"
 CLAUDE_MAX_TOKENS    = 1500
 

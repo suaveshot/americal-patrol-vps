@@ -8,7 +8,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-CLIENT_FILE = Path(__file__).resolve().parent / "client_interactions.json"
+CLIENT_FILE = Path(__file__).resolve().parent.parent / "data" / "client_interactions.json"
 
 
 def load_clients():
@@ -21,6 +21,7 @@ def load_clients():
 
 
 def save_clients(data):
+    CLIENT_FILE.parent.mkdir(parents=True, exist_ok=True)
     tmp = CLIENT_FILE.with_suffix(".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)

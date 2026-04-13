@@ -150,9 +150,9 @@ def process_feedback(service, state):
 
         if action == "send_proposed":
             try:
-                send_reply_in_thread(service, original_email, proposed, SIGNATURE)
-                resolve_escalation(state, esc_key, "sent_proposed")
-                log(f"  -> Sent proposed response")
+                create_reply_draft(service, original_email, proposed, SIGNATURE)
+                resolve_escalation(state, esc_key, "drafted_approved")
+                log(f"  -> Draft created (approved by Sam)")
             except Exception as e:
                 log(f"  -> ERROR sending proposed: {e}")
                 continue
@@ -387,6 +387,9 @@ def _build_escalation_body(email, result):
 
 # -- Main entry point --------------------------------------------------------
 def run():
+    # Ensure data dir exists (persistent Docker volume at /app/data)
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+
     log("=" * 60)
     log("Email Assistant (Larry) V2 -- Starting")
     log("=" * 60)

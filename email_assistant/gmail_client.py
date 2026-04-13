@@ -24,12 +24,13 @@ def get_gmail_service():
 # ── Fetch unread emails ──────────────────────────────────────────────────────
 def fetch_unread_emails(service, hours=2):
     """
-    Fetch unread emails from the last `hours` hours.
+    Fetch emails from the last `hours` hours.
     Excludes promotions, social, updates, and forums categories.
     Returns list of dicts with: id, thread_id, from, to, subject, date, body, labels, message_id.
+    Deduplication is handled by processed_ids in state, not by read status.
     """
     query = (
-        f"is:unread newer_than:{hours}h "
+        f"newer_than:{hours}h "
         "-category:promotions -category:social "
         "-category:updates -category:forums"
     )
