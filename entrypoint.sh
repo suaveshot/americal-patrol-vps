@@ -37,7 +37,7 @@ PATH=/usr/local/bin:/usr/bin:/bin
 0 * * * * root . /etc/container_env.sh && cd /app && python3 -m sales_pipeline.run_pipeline --hourly 2>&1 | tee -a /var/log/ap-sales.log > /proc/1/fd/1
 0 15 * * 1-5 root . /etc/container_env.sh && cd /app && python3 -m sales_pipeline.run_pipeline --daily 2>&1 | tee -a /var/log/ap-sales.log > /proc/1/fd/1
 */15 * * * * root . /etc/container_env.sh && cd /app && python3 -m sales_pipeline.transcribe_calls 2>&1 | tee -a /var/log/ap-transcribe.log > /proc/1/fd/1
-30 * * * * root . /etc/container_env.sh && cd /app && python3 email_assistant/email_monitor.py 2>&1 | tee -a /var/log/ap-email.log > /proc/1/fd/1
+*/15 * * * * root . /etc/container_env.sh && cd /app && python3 email_assistant/email_monitor.py 2>&1 | tee -a /var/log/ap-email.log > /proc/1/fd/1
 15 * * * * root . /etc/container_env.sh && cd /app && python3 watchdog/watchdog.py 2>&1 | tee -a /var/log/ap-watchdog.log > /proc/1/fd/1
 # Call Intelligence
 5 * * * * root . /etc/container_env.sh && cd /app && python3 -m call_intelligence.run_ingestion 2>&1 | tee -a /var/log/ap-call-intel.log > /proc/1/fd/1
