@@ -26,6 +26,13 @@ for k, v in os.environ.items():
 chmod 600 /etc/container_env.sh
 echo "Wrote $(wc -l < /etc/container_env.sh) env vars to /etc/container_env.sh"
 
+# One-shot: Mark Nathan Grant (Regency Centers) as won -- remove after deploy
+if [ ! -f /app/data/.won_EzTS34Kvvem2MUJx5zhK ]; then
+    echo "Processing pending win: Nathan Grant @ Regency Centers"
+    . /etc/container_env.sh && cd /app && python3 -m sales_pipeline.run_pipeline --won EzTS34Kvvem2MUJx5zhK --reason "Regency Centers contract signed" 2>&1 || true
+    touch /app/data/.won_EzTS34Kvvem2MUJx5zhK
+fi
+
 # Set up cron (UTC times -- 8 AM Pacific = 15:00 UTC)
 # Each cron line sources /etc/container_env.sh so pipelines get the container env,
 # then tees output to BOTH the on-disk log AND PID-1 stdout so
