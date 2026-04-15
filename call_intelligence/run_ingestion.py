@@ -88,12 +88,15 @@ def fetch_recent_conversations(ghl: GHLClient, lookback_hours: int = 2) -> list:
             last_msg_date = conv.get("lastMessageDate") or conv.get("dateUpdated", "")
             if last_msg_date:
                 try:
-                    # Parse the date string, handling both Z and +00:00 formats
-                    date_str = last_msg_date.replace("Z", "+00:00")
-                    msg_dt = datetime.fromisoformat(date_str)
+                    if isinstance(last_msg_date, (int, float)):
+                        # GHL sometimes returns epoch milliseconds
+                        msg_dt = datetime.fromtimestamp(last_msg_date / 1000, tz=timezone.utc)
+                    else:
+                        date_str = last_msg_date.replace("Z", "+00:00")
+                        msg_dt = datetime.fromisoformat(date_str)
                     if msg_dt >= cutoff:
                         recent.append(conv)
-                except (ValueError, TypeError):
+                except (ValueError, TypeError, AttributeError, OSError):
                     recent.append(conv)  # include if date can't be parsed
             else:
                 recent.append(conv)  # include if we can't determine date
@@ -161,7 +164,11 @@ def process_call_message(ghl: GHLClient, conn, cfg: dict, msg: dict,
         return False
 
     direction = msg.get("direction", "outbound")
-    call_timestamp = msg.get("dateAdded", datetime.now(timezone.utc).isoformat())
+    raw_date = msg.get("dateAdded", "")
+    if isinstance(raw_date, (int, float)):
+        call_timestamp = datetime.fromtimestamp(raw_date / 1000, tz=timezone.utc).isoformat()
+    else:
+        call_timestamp = raw_date or datetime.now(timezone.utc).isoformat()
     caller_phone = msg.get("phone", msg.get("from", ""))
     now = datetime.now(timezone.utc).isoformat()
 
