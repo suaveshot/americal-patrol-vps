@@ -3,6 +3,7 @@ services:
     build: .
     volumes:
       - ap-data:/app/data
+      - ap-logs:/var/log
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
@@ -31,3 +32,4 @@ services:
 
 volumes:
   ap-data:
+  ap-logs:

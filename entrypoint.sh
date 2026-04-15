@@ -13,15 +13,19 @@ if [ ! -f /app/patrol_automation/credentials.json ] && [ -n "$GOOGLE_CREDS_B64" 
 fi
 
 # Set up cron (UTC times -- 8 AM Pacific = 15:00 UTC)
+# Each cron line tees output to BOTH the on-disk log AND PID-1 stdout so
+# Docker logs (VPS_getProjectLogsV1) captures every run. The canary line
+# confirms cron itself is alive minute-by-minute.
 cat > /etc/cron.d/ap << 'CRONEOF'
-0 * * * * root cd /app && python3 -m sales_pipeline.run_pipeline --hourly >> /var/log/ap-sales.log 2>&1
-0 15 * * 1-5 root cd /app && python3 -m sales_pipeline.run_pipeline --daily >> /var/log/ap-sales.log 2>&1
-*/15 * * * * root cd /app && python3 -m sales_pipeline.transcribe_calls >> /var/log/ap-transcribe.log 2>&1
-30 * * * * root cd /app && python3 email_assistant/email_monitor.py >> /var/log/ap-email.log 2>&1
-15 * * * * root cd /app && python3 watchdog/watchdog.py >> /var/log/ap-watchdog.log 2>&1
+* * * * * root echo "[$(date -u +\%FT\%TZ)] cron alive" > /proc/1/fd/1
+0 * * * * root cd /app && python3 -m sales_pipeline.run_pipeline --hourly 2>&1 | tee -a /var/log/ap-sales.log > /proc/1/fd/1
+0 15 * * 1-5 root cd /app && python3 -m sales_pipeline.run_pipeline --daily 2>&1 | tee -a /var/log/ap-sales.log > /proc/1/fd/1
+*/15 * * * * root cd /app && python3 -m sales_pipeline.transcribe_calls 2>&1 | tee -a /var/log/ap-transcribe.log > /proc/1/fd/1
+30 * * * * root cd /app && python3 email_assistant/email_monitor.py 2>&1 | tee -a /var/log/ap-email.log > /proc/1/fd/1
+15 * * * * root cd /app && python3 watchdog/watchdog.py 2>&1 | tee -a /var/log/ap-watchdog.log > /proc/1/fd/1
 # Call Intelligence
-5 * * * * root cd /app && python3 -m call_intelligence.run_ingestion >> /var/log/ap-call-intel.log 2>&1
-0 13 * * * root cd /app && python3 -m call_intelligence.sync_deals >> /var/log/ap-call-intel.log 2>&1
+5 * * * * root cd /app && python3 -m call_intelligence.run_ingestion 2>&1 | tee -a /var/log/ap-call-intel.log > /proc/1/fd/1
+0 13 * * * root cd /app && python3 -m call_intelligence.sync_deals 2>&1 | tee -a /var/log/ap-call-intel.log > /proc/1/fd/1
 CRONEOF
 chmod 0644 /etc/cron.d/ap
 cron
