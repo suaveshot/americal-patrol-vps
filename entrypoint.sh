@@ -17,6 +17,7 @@ fi
 # Docker logs (VPS_getProjectLogsV1) captures every run. The canary line
 # confirms cron itself is alive minute-by-minute.
 cat > /etc/cron.d/ap << 'CRONEOF'
+PATH=/usr/local/bin:/usr/bin:/bin
 * * * * * root echo "[$(date -u +\%FT\%TZ)] cron alive" > /proc/1/fd/1
 0 * * * * root cd /app && python3 -m sales_pipeline.run_pipeline --hourly 2>&1 | tee -a /var/log/ap-sales.log > /proc/1/fd/1
 0 15 * * 1-5 root cd /app && python3 -m sales_pipeline.run_pipeline --daily 2>&1 | tee -a /var/log/ap-sales.log > /proc/1/fd/1
