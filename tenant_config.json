@@ -1,0 +1,17 @@
+{
+  "active": true,
+  "client_id": "americal_patrol",
+  "company": {
+    "name": "Americal Patrol",
+    "legal_name": "Americal Patrol, Inc.",
+    "phone": "(805) 515-3834",
+    "address": "Ventura County, CA",
+    "website": "americalpatrol.com",
+    "website_url": "https://americalpatrol.com"
+  },
+  "contact": {
+    "owner_name": "Sam Alarcon",
+    "owner_email": "salarcon@americalpatrol.com"
+  },
+  "usage_thresholds": {}
+}

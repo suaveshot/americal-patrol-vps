@@ -60,6 +60,18 @@ persist_dir /app/pipeline_events  /app/data/pipeline_events
 # Call Intelligence config (rarely written, but save_config() exists)
 persist_file /app/call_intelligence/config.json  /app/data/call_intelligence/config.json
 
+# Usage Tracker (token usage logs + aggregator state)
+persist_dir  /app/usage_logs                       /app/data/usage_logs
+persist_file /app/usage_tracker/alert_state.json   /app/data/usage_tracker/alert_state.json
+
+# Payment Guard (state, config, audit trail)
+persist_file /app/payment_guard/guard_state.json   /app/data/payment_guard/guard_state.json
+persist_file /app/payment_guard/config.json        /app/data/payment_guard/config.json
+persist_file /app/payment_guard/audit_log.jsonl    /app/data/payment_guard/audit_log.jsonl
+
+# Tenant config (active flag written by payment guard)
+persist_file /app/tenant_config.json               /app/data/tenant_config.json
+
 echo "State persistence ready."
 
 # Decode OAuth tokens from environment variables (first run only)
@@ -102,6 +114,10 @@ PATH=/usr/local/bin:/usr/bin:/bin
 # Call Intelligence
 5 * * * * root . /etc/container_env.sh && cd /app && python3 -m call_intelligence.run_ingestion 2>&1 | tee -a /var/log/ap-call-intel.log > /proc/1/fd/1
 0 13 * * * root . /etc/container_env.sh && cd /app && python3 -m call_intelligence.sync_deals 2>&1 | tee -a /var/log/ap-call-intel.log > /proc/1/fd/1
+# Payment Guard (9:05 AM Pacific = 16:05 UTC, after n8n QBO sync)
+5 16 * * * root . /etc/container_env.sh && cd /app && python3 -m payment_guard.run_payment_guard 2>&1 | tee -a /var/log/ap-payment-guard.log > /proc/1/fd/1
+# Usage Aggregator (11:00 PM Pacific = 06:00 UTC next day)
+0 6 * * * root . /etc/container_env.sh && cd /app && python3 -m usage_tracker.aggregate_usage 2>&1 | tee -a /var/log/ap-usage.log > /proc/1/fd/1
 CRONEOF
 chmod 0644 /etc/cron.d/ap
 cron

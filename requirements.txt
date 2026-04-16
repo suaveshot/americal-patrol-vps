@@ -8,3 +8,4 @@ google-api-python-client
 python-docx
 faster-whisper
 SpeechRecognition
+pyairtable

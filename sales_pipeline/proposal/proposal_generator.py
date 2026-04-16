@@ -22,27 +22,37 @@ from sales_pipeline.config import (
     GMAIL_SENDER,
     TEMPLATE_FILE,
 )
+import tenant_context as tc
 
 log = logging.getLogger(__name__)
 
 GENERATED_DIR = Path(__file__).resolve().parent / "generated"
 
-# Americal Patrol business details (constant)
-BUSINESS_DETAILS = {
-    "name": "Americal Patrol",
-    "phone": "(805) 515-3834",
-    "website": "americalpatrol.com",
-    "address": {
-        "addressLine1": "Oxnard, CA",
-    },
-}
+def _business_details() -> dict:
+    """Build business details from tenant config."""
+    return {
+        "name": tc.company_name(),
+        "phone": tc.company_phone(),
+        "website": tc.company_website(),
+        "address": {
+            "addressLine1": tc.company_address(),
+        },
+    }
+
+BUSINESS_DETAILS = None  # Lazy-loaded
+
+def _get_business_details() -> dict:
+    global BUSINESS_DETAILS
+    if BUSINESS_DETAILS is None:
+        BUSINESS_DETAILS = _business_details()
+    return BUSINESS_DETAILS
 
 # Standard terms & conditions (HTML)
 TERMS_AND_CONDITIONS = """<p><strong>Terms &amp; Conditions:</strong></p>
 <ul>
 <li>Services begin upon signed agreement and receipt of first payment.</li>
 <li>30-day written cancellation notice required.</li>
-<li>Americal Patrol carries full liability insurance and workers' compensation coverage.</li>
+<li>{tc.company_name()} carries full liability insurance and workers' compensation coverage.</li>
 <li>All patrol officers are licensed, uniformed, and background-checked.</li>
 <li>Monthly invoicing — payment due within 15 days of invoice date.</li>
 <li>Service scope adjustments available with 7-day advance notice.</li>
@@ -71,12 +81,15 @@ _PROPERTY_DUTIES = {
     ),
 }
 
-_SERVICE_DESC_SYSTEM = (
-    "You are writing service description copy for Americal Patrol, "
-    "a licensed security patrol company in Ventura County, CA. "
-    "Match this exact tone and structure: direct, professional, no filler. "
-    "Write in third person as if describing the service in a formal proposal."
-)
+def _service_desc_system() -> str:
+    return (
+        f"You are writing service description copy for {tc.company_name()}, "
+        f"{tc.company_description()} "
+        "Match this exact tone and structure: direct, professional, no filler. "
+        "Write in third person as if describing the service in a formal proposal."
+    )
+
+_SERVICE_DESC_SYSTEM = None  # Lazy-loaded
 
 
 WEEKS_PER_MONTH = 4.33  # average weeks in a month
@@ -204,7 +217,7 @@ def _call_claude(prompt: str) -> str:
     response = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=512,
-        system=_SERVICE_DESC_SYSTEM,
+        system=_service_desc_system(),
         messages=[{"role": "user", "content": prompt}],
     )
     return response.content[0].text.strip()
@@ -218,7 +231,7 @@ def build_service_description(inp: EstimateInput) -> str:
     prompt = (
         f"Write 1-2 short paragraphs describing the security patrol service for a proposal. "
         f"Use this exact structure and style:\n\n"
-        f"'Americal Patrol will perform [frequency] between the times of [hours]. "
+        f"'{tc.company_name()} will perform [frequency] between the times of [hours]. "
         f"Officers are a visible deterrent to crime, and their duties include but are not limited to: "
         f"[duties relevant to property type].'\n\n"
         f"Fill in with:\n"
@@ -278,7 +291,7 @@ def build_estimate_body(inp: EstimateInput, contact: dict, service_description: 
         "issueDate": today.isoformat(),
         "expiryDate": expiry.isoformat(),
         "currency": "USD",
-        "businessDetails": BUSINESS_DETAILS,
+        "businessDetails": _get_business_details(),
         "contactDetails": {
             "id": inp.contact_id,
             "name": full_name,

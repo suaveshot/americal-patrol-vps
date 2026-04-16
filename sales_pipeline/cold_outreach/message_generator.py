@@ -11,16 +11,20 @@ Returns (subject, body) tuples.
   - Timeline hooks preferred over problem statements
   - No signature in output (appended separately by signature.py)
   - A/B variant generation for initial touches
+
+All company-specific values loaded from tenant_context.
 """
 
 import logging
 
 import anthropic
 
+from shared_utils.usage_tracker import tracked_create
 from sales_pipeline.config import ANTHROPIC_API_KEY, CALENDAR_LINK
 from sales_pipeline.enrichment.prospect_db import find_prospect_match, get_strategic_angle
 from sales_pipeline.learning.learning_analyzer import get_prompt_guidance
 from sales_pipeline.cold_outreach.lead_filter import get_city_page_url
+import tenant_context as tc
 
 log = logging.getLogger(__name__)
 
@@ -29,55 +33,41 @@ class MessageGenerationError(Exception):
     pass
 
 
-_BASE_SYSTEM_PROMPT = """You are writing on behalf of Sam Alarcon, Vice President at Americal Patrol, a licensed security patrol company
-based in Oxnard, CA. Key facts about Americal Patrol:
-- California BSIS-licensed PPO (fully insured)
-- Armed and unarmed officer options available
-- 24/7 patrol coverage available
-- HOA and residential complex specialists
-- Serves Ventura County, Orange County, Los Angeles County, and surrounding areas
-- Veteran-owned, established 1986
+def _build_base_system_prompt() -> str:
+    """Build the system prompt dynamically from tenant_config.json."""
+    name = tc.owner_name()
+    title = tc.owner_title()
+    company = tc.company_name()
+    description = tc.company_description()
 
-CRITICAL LOCATION RULE:
-- ALWAYS reference the correct county/area based on the prospect's city
-- Ventura County cities: Oxnard, Ventura, Camarillo, Thousand Oaks, Simi Valley, Moorpark, Santa Paula, Fillmore, Ojai, Port Hueneme, Oak View, Carpinteria
-- Orange County cities: Anaheim, Fullerton, Placentia, Brea, Tustin, Yorba Linda, La Mirada, Westminster, Garden Grove
-- Los Angeles County cities: LA, Gardena, Vernon, Pasadena, Baldwin Park, Long Beach
-- If the city is not listed, say "Southern California" — NEVER default to Ventura County
-- Do NOT say "Ventura County" for a prospect in Orange County or LA County
+    # Build selling points as bullet list
+    points = tc.selling_points()
+    points_str = "\n".join(f"- {p}" for p in points)
 
-PROPERTY LANGUAGE RULE:
-- NEVER say "your other property", "the other property", or "another property" — it sounds vague and confusing.
-- If you know the address or property name, reference it specifically (e.g., "your Birch St. property").
-- If you know the company name, reference it (e.g., "security for Colour Republic").
-- If you only know the city, reference the area (e.g., "your Oxnard property").
-- As a last resort, say "your property" or "your site" — never "other".
+    # Location rules (tenant-specific)
+    loc_rules = tc.location_rules()
+    loc_section = f"\n{loc_rules}\n" if loc_rules else ""
 
+    return f"""You are writing on behalf of {name}, {title} at {company}, {description}
+Key facts about {company}:
+{points_str}
+{loc_section}
 WRITING RULES:
-- Write conversationally but STRUCTURED — this is a professional email, not a text message.
-- Keep emails between 60-125 words.
-- Use 2-3 SHORT paragraphs separated by blank lines — NEVER one run-on block of text.
-- Start with a greeting on its own line (e.g., "Hey Dan,").
-- Paragraph 1: Context or hook (1-2 sentences).
-- Paragraph 2: Value proposition or insight (1-2 sentences).
-- Paragraph 3: Clear CTA / ask (1 sentence with booking link).
-- Use the PAS framework (Problem-Agitate-Solution) when you know their pain points.
-- ONE clear call-to-action per message — always end with a specific ask.
-- Reference specific details about their company when provided.
-- Never sound like a mass email or template.
-- Do NOT include a full signature block — it is added separately.
-- DO end with a short sign-off like "Best," or "Talk soon," followed by "Sam" on the next line.
-- Do NOT mention that they previously inquired, filled out a form, or "went cold" — write as if this is a fresh introduction.
-- NEVER use markdown formatting. No [brackets](links), no **bold**, no *italics*, no bullet points.
-- Write URLs as plain text on their own line — never wrap them in markdown link syntax.
-- Example of WRONG: [americalpatrol.com/oxnard](https://americalpatrol.com/oxnard)
-- Example of RIGHT: americalpatrol.com/oxnard-security-guards
-- NEVER use em dashes (—). Use commas, periods, or rewrite the sentence instead."""
+- Write conversationally, like texting a business acquaintance — NOT like a formal business letter
+- Keep emails between 50-125 words (the sweet spot for cold email reply rates)
+- Use the PAS framework (Problem-Agitate-Solution) when you know their pain points
+- ONE clear call-to-action per message — always end with a specific ask
+- Prefer timeline hooks ("I noticed X recently") over generic problem statements
+- Reference specific details about their company when provided
+- Never sound like a mass email or template
+- Do NOT include a signature block — it is added separately
+- Do NOT include "Best regards", "Sincerely", or any sign-off — just end with the CTA
+- Do NOT mention that they previously inquired, filled out a form, or "went cold" — write as if this is a fresh introduction"""
 
 
 def _build_system_prompt() -> str:
     """Build system prompt with learning insights appended."""
-    base = _BASE_SYSTEM_PROMPT
+    base = _build_base_system_prompt()
     try:
         guidance = get_prompt_guidance()
         if guidance:
@@ -86,13 +76,20 @@ def _build_system_prompt() -> str:
         pass
     return base
 
-PROPERTY_ANGLES = {
-    "commercial":  "After-hours patrol, access control, reducing theft and vandalism liability for commercial properties.",
-    "industrial":  "Perimeter monitoring, cargo and equipment theft prevention, and 24/7 coverage for industrial and warehouse facilities.",
-    "retail":      "Visible uniformed deterrence, loss prevention partnership, and fast incident response for retail environments.",
-    "hoa":         "Resident safety, parking enforcement, gate and common area patrol. HOA and apartment complex specialists.",
-    "other":       "A customized security assessment tailored to their specific needs and inquiry details.",
-}
+
+def _get_property_angles() -> dict:
+    """Get property/client type talking points from tenant config, with fallback."""
+    angles = tc.property_angles()
+    if angles:
+        return angles
+    # Generic fallback if not configured
+    industry = tc.company_industry()
+    return {
+        "commercial": f"Professional {industry} services for commercial properties.",
+        "residential": f"Reliable {industry} services for homeowners and renters.",
+        "hoa": f"Dedicated {industry} services for HOA and property management companies.",
+        "other": f"A customized {industry} plan tailored to their specific needs.",
+    }
 
 
 def _build_prompt(contact: dict, channel: str, is_followup: bool) -> str:
@@ -104,8 +101,12 @@ def _build_prompt(contact: dict, channel: str, is_followup: bool) -> str:
     details     = contact.get("inquiry_details", "")
     calendly    = CALENDAR_LINK()
 
+    company = tc.company_name()
+    industry = tc.company_industry()
+    angles = _get_property_angles()
+
     location_str = ", ".join(filter(None, [address, city]))
-    angle = PROPERTY_ANGLES.get(prop_type, PROPERTY_ANGLES["other"])
+    angle = angles.get(prop_type, angles.get("other", f"Professional {industry} services."))
 
     # Enrichment: look up prospect in research database
     enrichment_context = ""
@@ -121,13 +122,13 @@ def _build_prompt(contact: dict, channel: str, is_followup: bool) -> str:
         if channel == "sms":
             return (
                 f"Write a SHORT follow-up text message (≤160 characters) to {name} at {org}. "
-                f"A gentle check-in about security services. "
+                f"A gentle check-in about {industry} services. "
                 f"Casual, friendly, 1-2 sentences max. End with this exact booking link: {calendly}"
             )
         else:
             return (
                 f"Write a SHORT follow-up email body (≤75 words) to {name} at {org}. "
-                f"A brief check-in about security patrol services. "
+                f"A brief check-in about {industry} services. "
                 f"Warm, no pressure, single CTA. End with this exact booking link: {calendly}\n"
                 + (f"\nContext about this company: {enrichment_context}" if enrichment_context else "")
             )
@@ -137,18 +138,18 @@ def _build_prompt(contact: dict, channel: str, is_followup: bool) -> str:
     location_note = ""
     city_page_note = ""
     if city_str:
-        location_note = f"Their property is in {city_str}. Reference the correct county for this city. "
+        location_note = f"Their property is in {city_str}. Reference the correct area for this city. "
         city_url = get_city_page_url(city_str)
         if city_url:
             city_page_note = (
-                f"We have a dedicated page for their city: {city_url}. "
+                f"We have a dedicated page for their city: {city_url} — "
                 f"naturally mention or link to it if it fits the message flow. "
             )
 
     if channel == "sms":
         return (
             f"Write a cold outreach SMS (≤300 characters) to {name} at {org}. "
-            f"Introduce Americal Patrol's security services"
+            f"Introduce {company}'s {industry} services"
             + (f" for their {prop_type} property" if prop_type != "other" else "") +
             (f" in {city_str}" if city_str else "") + ". "
             f"{location_note}"
@@ -162,15 +163,15 @@ def _build_prompt(contact: dict, channel: str, is_followup: bool) -> str:
             f"SUBJECT LINE: Write a 2-4 word lowercase subject line (curiosity-driven, "
             f"no company name). Put it on the first line prefixed with 'SUBJECT: '.\n\n"
             f"BODY: Write a cold outreach email body (50-80 words, NO signature) to {name} at {org}. "
-            f"Introduce Americal Patrol's security patrol services"
-            + (f" for their {prop_type} property" if prop_type != "other" else "") +
-            (f" in {city_str}" if city_str else "") + ". "
+            f"Introduce {company}'s {industry} services for their "
+            f"{prop_type} property"
+            + (f" in {city_str}" if city_str else "") + ". "
             f"{location_note}"
             f"{city_page_note}"
             f"Focus: {angle} "
             + (f"Property details: {details}. " if details else "") +
             (f"\nCompany research context (use this to deeply personalize): {enrichment_context} " if enrichment_context else "") +
-            f"\nEnd with this exact booking link: {calendly}. Invite them to schedule a quick call. "
+            f"\nEnd with this exact booking link: {calendly} — invite them to schedule a quick call. "
             f"Conversational tone, single CTA, no sign-off or signature."
         )
 
@@ -180,6 +181,7 @@ def _build_subject(contact: dict, is_followup: bool) -> str:
     name = contact.get("first_name") or ""
     org = contact.get("organization") or "your property"
     prop_type = contact.get("property_type", "other")
+    industry = tc.company_industry()
 
     # Check enrichment for decision maker name
     if not name:
@@ -187,24 +189,19 @@ def _build_subject(contact: dict, is_followup: bool) -> str:
         if prospect and prospect.get("decision_maker"):
             name = prospect["decision_maker"].split()[0]
 
-    type_labels = {
-        "commercial":  "commercial security",
-        "industrial":  "industrial security",
-        "retail":      "retail security",
-        "hoa":         "HOA patrol",
-        "other":       "security services",
-    }
-    label = type_labels.get(prop_type, "security services")
+    type_labels = {k: f"{k} {industry}" for k in _get_property_angles()}
+    type_labels.setdefault("other", f"{industry} services")
+    label = type_labels.get(prop_type, f"{industry} services")
 
     if is_followup:
         if name:
-            return f"Hi {name}, following up on {label}"
-        return f"Following up on {label} for {org}"
+            return f"Hi {name} — following up on {label}"
+        return f"Following up — {label} for {org}"
 
     # Initial subject: personalized with name or company
     if name:
-        return f"Hi {name}, {label} for {org}"
-    return f"{label.title()} for {org} - quick question"
+        return f"Hi {name} — {label} for {org}"
+    return f"{label.title()} for {org} — quick question"
 
 
 def _parse_claude_response(text: str, channel: str) -> tuple:
@@ -265,12 +262,14 @@ def generate_message(contact: dict, channel: str, is_followup: bool = False) -> 
     use_template_subject = is_followup and channel != "sms"
 
     try:
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY())
-        response = client.messages.create(
+        response = tracked_create(
             model="claude-sonnet-4-6",
             max_tokens=512,
             system=_build_system_prompt(),
             messages=[{"role": "user", "content": prompt}],
+            pipeline="sales",
+            client_id=tc.client_id(),
+            api_key=ANTHROPIC_API_KEY(),
         )
         raw = response.content[0].text.strip()
 

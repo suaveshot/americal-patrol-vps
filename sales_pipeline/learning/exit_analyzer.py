@@ -14,10 +14,11 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 
-import anthropic
+from shared_utils.usage_tracker import tracked_create
 
 from sales_pipeline import config
 from sales_pipeline.state import load_state, get_contact, _parse_iso
+import tenant_context as tc
 
 log = logging.getLogger(__name__)
 
@@ -52,8 +53,8 @@ def run_exit_analysis(ghl_client, contact_id: str, reason: str = "not_interested
     # Pull estimate info if available
     estimate_info = _get_estimate_info(ghl_client, entry)
 
-    prompt = f"""Analyze why this prospect left Americal Patrol's sales pipeline.
-Americal Patrol is a licensed, veteran-owned security patrol company (est. 1986) in Oxnard, CA.
+    prompt = f"""Analyze why this prospect left {tc.company_name()}'s sales pipeline.
+{tc.company_description()}
 
 Contact: {first_name} at {company}
 Property type: {property_type}
@@ -78,11 +79,13 @@ Analyze this exit and output JSON with these fields:
 Output ONLY valid JSON, no markdown formatting."""
 
     try:
-        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY())
-        response = client.messages.create(
+        response = tracked_create(
             model="claude-sonnet-4-6",
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
+            pipeline="sales",
+            client_id=tc.client_id(),
+            api_key=config.ANTHROPIC_API_KEY(),
         )
         analysis_text = response.content[0].text.strip()
 
@@ -142,8 +145,8 @@ def run_win_analysis(ghl_client, contact_id: str, reason: str = "") -> dict:
     days_in_pipeline = _calc_days(entry)
     estimate_info = _get_estimate_info(ghl_client, entry)
 
-    prompt = f"""Analyze why this prospect CHOSE Americal Patrol's security patrol services.
-Americal Patrol is a licensed, veteran-owned security patrol company (est. 1986) in Oxnard, CA.
+    prompt = f"""Analyze why this prospect CHOSE {tc.company_name()}'s {tc.company_industry()} services.
+{tc.company_description()}
 
 Contact: {first_name} at {company}
 Property type: {property_type}
@@ -168,11 +171,13 @@ Analyze this win and output JSON with these fields:
 Output ONLY valid JSON, no markdown formatting."""
 
     try:
-        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY())
-        response = client.messages.create(
+        response = tracked_create(
             model="claude-sonnet-4-6",
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
+            pipeline="sales",
+            client_id=tc.client_id(),
+            api_key=config.ANTHROPIC_API_KEY(),
         )
         analysis_text = response.content[0].text.strip()
 
@@ -377,8 +382,8 @@ def _synthesize_recommendations(exits: list, wins: list) -> dict:
             f"Recommendation: {w.get('pipeline_recommendation', 'N/A')}"
         )
 
-    prompt = f"""You are a sales operations analyst reviewing Americal Patrol's pipeline performance this week.
-Americal Patrol is a licensed, veteran-owned security patrol company (est. 1986) based in Oxnard, CA.
+    prompt = f"""You are a sales operations analyst reviewing {tc.company_name()}'s pipeline performance this week.
+{tc.company_description()}
 
 EXITS THIS WEEK ({len(exits)}):
 {chr(10).join(exit_summaries) if exit_summaries else "None"}
@@ -398,11 +403,13 @@ Based on these outcomes, provide a JSON response with:
 Output ONLY valid JSON, no markdown formatting."""
 
     try:
-        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY())
-        response = client.messages.create(
+        response = tracked_create(
             model="claude-sonnet-4-6",
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
+            pipeline="sales",
+            client_id=tc.client_id(),
+            api_key=config.ANTHROPIC_API_KEY(),
         )
         text = response.content[0].text.strip()
         if text.startswith("```"):

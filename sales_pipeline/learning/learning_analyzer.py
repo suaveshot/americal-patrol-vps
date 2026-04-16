@@ -13,13 +13,14 @@ import logging
 from collections import defaultdict
 from datetime import datetime, timezone
 
-import anthropic
+from shared_utils.usage_tracker import tracked_create
 
 from sales_pipeline.config import (
     ANTHROPIC_API_KEY,
     INSIGHTS_FILE,
     WIN_LOSS_LOG_FILE,
 )
+import tenant_context as tc
 from sales_pipeline.learning.outcome_tracker import (
     get_finalized_outcomes,
     is_cold_start,
@@ -99,7 +100,7 @@ def _load_win_loss_data() -> list:
 
 def _build_analysis_prompt(rates: dict, win_loss_data: list) -> str:
     """Build the Claude prompt for meta-analysis."""
-    prompt = """You are analyzing outreach performance data for Americal Patrol, a security patrol company.
+    prompt = f"""You are analyzing outreach performance data for {tc.company_name()}, a {tc.company_industry()} company.
 Your job is to identify what's working and what isn't, then generate actionable guidance.
 
 ## Reply Rate Data by Dimension
@@ -175,11 +176,13 @@ def run_analysis() -> dict:
     prompt = _build_analysis_prompt(rates, win_loss_data)
 
     try:
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY())
-        response = client.messages.create(
+        response = tracked_create(
             model="claude-sonnet-4-6",
             max_tokens=800,
             messages=[{"role": "user", "content": prompt}],
+            pipeline="sales",
+            client_id=tc.client_id(),
+            api_key=ANTHROPIC_API_KEY(),
         )
         guidance_text = response.content[0].text.strip()
     except Exception as e:

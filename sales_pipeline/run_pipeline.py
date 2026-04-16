@@ -2,15 +2,13 @@
 Sales Pipeline --- Unified Entry Point
 
 Usage:
-    python -m sales_pipeline.run_pipeline --hourly
     python -m sales_pipeline.run_pipeline --daily
     python -m sales_pipeline.run_pipeline --generate
     python -m sales_pipeline.run_pipeline --send
     python -m sales_pipeline.run_pipeline --proposal proposal_input.json
     python -m sales_pipeline.run_pipeline --migrate
 
---hourly:    Lightweight hourly check: recency boost for new leads + cancel-on-reply safety
---daily:     Run follow-ups (both phases) + send digest (Task Scheduler, 8 AM Mon-Fri)
+--daily:     Run follow-ups (both phases) + send digest (Task Scheduler, 8 AM Tu-Th)
 --generate:  Fetch cold leads, generate draft messages, email digest for review
 --send:      Send approved drafts from pipeline_drafts.json via GHL
 --proposal:  Generate a proposal from a JSON input file
@@ -29,6 +27,8 @@ from sales_pipeline import config
 from sales_pipeline.config import LOG_FILE, DRAFTS_FILE
 from sales_pipeline.templates.signature import wrap_email_body
 from sales_pipeline.templates.unsubscribe import wrap_email_with_unsubscribe
+import tenant_context as tc
+from providers import get_crm
 
 # Event bus for cross-pipeline integration
 try:
@@ -48,124 +48,16 @@ log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# --hourly
-# ---------------------------------------------------------------------------
-
-def run_hourly():
-    """Lightweight hourly check: recency boost for new leads + cancel-on-reply safety."""
-    from sales_pipeline.ghl_client import GHLClient
-    from sales_pipeline.state import load_state, save_state, get_contact, add_contact, backfill_smart_timing
-    from sales_pipeline.smart_timing import calculate_engagement_time
-
-    config.validate_config()
-    ghl = GHLClient()
-
-    log.info("=== Sales Pipeline Hourly Check ===")
-    state = load_state()
-
-    # Backfill smart timing fields for any contacts that don't have them
-    backfilled = backfill_smart_timing(state)
-    if backfilled:
-        log.info("Backfilled smart timing fields for %d contacts", backfilled)
-
-    # 1. Check event bus for new form submissions / voice leads
-    new_leads = 0
-    if publish_event:
-        try:
-            from shared_utils.event_bus import read_events_since
-            voice_events = read_events_since("voice_agent", "lead_captured", days=1)
-            for evt in voice_events:
-                cid = evt.get("contact_id", "")
-                if cid and not get_contact(state, cid):
-                    add_contact(
-                        state, cid,
-                        stage="discovered",
-                        channel="email",
-                        first_name=evt.get("first_name", ""),
-                        organization=evt.get("company", ""),
-                        property_type="other",
-                    )
-                    entry = get_contact(state, cid)
-                    timing = calculate_engagement_time(state_entry=entry)
-                    entry.update(timing)
-                    new_leads += 1
-        except Exception as e:
-            log.warning("Hourly voice lead check failed: %s", e)
-
-    # 2. Check for replies to contacts with pending scheduled messages
-    cancelled = 0
-    for contact_id, entry in list(state["contacts"].items()):
-        scheduled_ids = entry.get("scheduled_message_ids", [])
-        if not scheduled_ids:
-            continue
-        if entry.get("replied") or entry.get("completed"):
-            for msg_id in scheduled_ids:
-                ghl.cancel_scheduled_message(msg_id)
-                cancelled += 1
-            entry["scheduled_message_ids"] = []
-
-    if cancelled:
-        log.info("Cancelled %d scheduled messages due to replies", cancelled)
-
-    # 3. Scan for new inbound leads (web forms, phone calls, SMS)
-    inbound_added = 0
-    try:
-        from sales_pipeline.inbound_scanner import scan_inbound_leads
-        inbound = scan_inbound_leads(ghl, state)
-        for lead in inbound:
-            cid = lead["contact_id"]
-            if not get_contact(state, cid):
-                add_contact(
-                    state, cid,
-                    stage="discovered",
-                    channel="email",
-                    first_name=lead.get("first_name", ""),
-                    last_name=lead.get("last_name", ""),
-                    organization=lead.get("organization", ""),
-                    property_type=lead.get("property_type", "other"),
-                    email=lead.get("email", ""),
-                    phone=lead.get("phone", ""),
-                )
-                entry = get_contact(state, cid)
-                if entry:
-                    timing = calculate_engagement_time(state_entry=entry)
-                    entry.update(timing)
-                    entry["engagement_source"] = lead.get("engagement_source", "web_form")
-                    entry["engagement_velocity"] = lead.get("engagement_velocity", "fast")
-                inbound_added += 1
-        if inbound_added:
-            log.info("Inbound scanner: added %d new leads to pipeline", inbound_added)
-    except Exception as e:
-        log.warning("Inbound lead scan failed: %s", e)
-
-    save_state(state)
-    log.info("=== Hourly check complete: %d new leads, %d inbound, %d cancelled ===",
-             new_leads, inbound_added, cancelled)
-
-
-# ---------------------------------------------------------------------------
 # --daily
 # ---------------------------------------------------------------------------
 
 def run_daily():
     """Daily run: evaluate outcomes, check replies, send follow-ups, run learning, send digest."""
-    from sales_pipeline.ghl_client import GHLClient
     from sales_pipeline.follow_up.follow_up_engine import run_follow_ups
     from sales_pipeline.digest import send_digest
 
     config.validate_config()
-    ghl = GHLClient()
-
-    # Backfill smart timing fields for existing contacts
-    try:
-        from sales_pipeline.state import load_state as _load_st, save_state as _save_st, backfill_smart_timing
-        _st = _load_st()
-        _bf = backfill_smart_timing(_st)
-        if _bf:
-            _save_st(_st)
-            log.info("Backfilled smart timing fields for %d contacts", _bf)
-    except Exception as e:
-        log.warning("Smart timing backfill failed: %s", e)
+    ghl = get_crm()
 
     log.info("=== Sales Pipeline Daily Run ===")
 
@@ -191,13 +83,6 @@ def run_daily():
                         phone="",
                     )
                     voice_added += 1
-                    # Calculate engagement time for smart timing
-                    from sales_pipeline.smart_timing import calculate_engagement_time
-                    new_entry = get_contact(state, cid)
-                    if new_entry:
-                        timing = calculate_engagement_time(state_entry=new_entry)
-                        new_entry.update(timing)
-                        new_entry["engagement_source"] = "phone_call"
             if voice_added:
                 save_state(state)
                 log.info("Ingested %d voice leads into sales pipeline", voice_added)
@@ -213,16 +98,6 @@ def run_daily():
                 log.info("Found %d email lead inquiries in event bus", len(email_events))
         except Exception as e:
             log.warning("Email lead ingestion failed: %s", e)
-
-    # Process new call transcripts for active contacts
-    try:
-        from sales_pipeline.call_transcript import process_all_active_contacts
-        transcript_stats = process_all_active_contacts(ghl)
-        if transcript_stats.get("processed"):
-            log.info("Transcribed %d new calls across %d contacts",
-                     transcript_stats["processed"], transcript_stats["contacts_with_calls"])
-    except Exception as e:
-        log.warning("Call transcript processing failed: %s", e)
 
     # Evaluate pending learning outcomes (7+ days old)
     try:
@@ -278,7 +153,7 @@ def run_daily():
         from sales_pipeline.state import load_state, save_state, add_contact, mark_drafted
 
         state = load_state()
-        contacts = ghl.get_contacts()
+        contacts = ghl.list_contacts(limit=10000)
         threshold = config.THRESHOLD_DAYS()
         cap = config.DAILY_CAP()
         cold_leads = get_cold_leads(contacts, threshold_days=threshold, state=state, daily_cap=cap)
@@ -300,18 +175,6 @@ def run_daily():
                         enrichment_matched=draft.get("enrichment_matched", False),
                         enrichment_company=draft.get("enrichment_company", ""),
                     )
-                    # Calculate engagement time from GHL contact data
-                    from sales_pipeline.smart_timing import calculate_engagement_time as _calc_timing
-                    ghl_contact_data = next(
-                        (c for c in contacts if c.get("id") == cid), None
-                    )
-                    new_entry = state["contacts"].get(cid)
-                    if new_entry:
-                        timing = _calc_timing(
-                            ghl_contact=ghl_contact_data,
-                            state_entry=new_entry,
-                        )
-                        new_entry.update(timing)
                 if cid:
                     mark_drafted(state, cid)
             save_state(state)
@@ -371,22 +234,21 @@ def run_daily():
 
 def run_generate():
     """Generate cold outreach drafts: fetch leads, filter, generate messages, email digest."""
-    from sales_pipeline.ghl_client import GHLClient
     from sales_pipeline.cold_outreach.lead_filter import get_cold_leads
     from sales_pipeline.cold_outreach.draft_builder import build_drafts
     from sales_pipeline.state import load_state, save_state, add_contact, mark_drafted
     from sales_pipeline.digest import send_digest
 
     config.validate_config()
-    ghl = GHLClient()
+    ghl = get_crm()
 
     log.info("=== Cold Outreach Draft Generation ===")
 
     state = load_state()
 
-    # Fetch all GHL contacts
-    log.info("Fetching contacts from GHL...")
-    contacts = ghl.get_contacts()
+    # Fetch all contacts from CRM
+    log.info("Fetching contacts from CRM...")
+    contacts = ghl.list_contacts(limit=10000)
     log.info("Fetched %d contacts total", len(contacts))
 
     # Filter cold leads
@@ -451,8 +313,8 @@ def run_generate():
 # ---------------------------------------------------------------------------
 
 def run_send():
-    """Send approved drafts from pipeline_drafts.json via GHL."""
-    from sales_pipeline.ghl_client import GHLClient, GHLAPIError
+    """Send approved drafts from pipeline_drafts.json."""
+    from providers.crm.ghl import GHLAPIError
     from sales_pipeline.state import load_state, save_state, mark_outreached
 
     config.validate_config()
@@ -485,7 +347,7 @@ def run_send():
         )
         return
 
-    ghl = GHLClient()
+    ghl = get_crm()
     state = load_state()
     sent_count = 0
     error_count = 0
@@ -523,16 +385,6 @@ def run_send():
             mark_outreached(state, contact_id, channel)
             sent_count += 1
             log.info("Sent %s to %s (%s)", channel, name, contact_id)
-
-            # Calculate engagement time for smart timing
-            try:
-                from sales_pipeline.smart_timing import calculate_engagement_time as _calc_eng
-                entry_state = state["contacts"].get(contact_id)
-                if entry_state and not entry_state.get("optimal_send_hour"):
-                    timing = _calc_eng(state_entry=entry_state)
-                    entry_state.update(timing)
-            except Exception:
-                pass
 
             # Record outcome for learning
             try:
@@ -586,11 +438,10 @@ def run_send():
 # ---------------------------------------------------------------------------
 
 def run_proposal(input_file: str):
-    """Generate and send a GHL estimate from a JSON input file."""
+    """Generate and send an estimate/proposal from a JSON input file."""
     from sales_pipeline.proposal.proposal_generator import (
         EstimateInput, create_and_send_estimate, resolve_preset,
     )
-    from sales_pipeline.ghl_client import GHLClient
     from sales_pipeline.state import load_state, save_state, add_contact, mark_proposal_sent
 
     config.validate_config()
@@ -607,7 +458,7 @@ def run_proposal(input_file: str):
     inp = EstimateInput(**resolved)
     log.info("Creating estimate for contact %s...", inp.contact_id)
 
-    ghl = GHLClient()
+    ghl = get_crm()
     result = create_and_send_estimate(ghl, inp)
     log.info("Estimate %s created ($%.2f)", result["estimate_id"], result["total"])
 
@@ -652,7 +503,7 @@ def run_proposal(input_file: str):
 
 def _run_win_loss_analysis(ghl, contact_id: str, outcome: str, reason: str = ""):
     """Pull full conversation history and run Claude win/loss analysis."""
-    import anthropic
+    from shared_utils.usage_tracker import tracked_create
     from sales_pipeline.state import load_state, get_contact
 
     state = load_state()
@@ -703,25 +554,7 @@ def _run_win_loss_analysis(ghl, contact_id: str, outcome: str, reason: str = "")
             days = int((datetime.now(timezone.utc) - start_dt).total_seconds() / 86400)
             days_in_pipeline = f"{days} days"
 
-    # Add call transcript context
-    call_transcript_section = ""
-    try:
-        from sales_pipeline.call_transcript import load_transcripts, get_contact_transcripts
-        transcripts = load_transcripts()
-        calls = get_contact_transcripts(transcripts, contact_id)
-        if calls:
-            call_transcript_section = "\n\nPHONE CALL TRANSCRIPTS:\n"
-            for call in calls:
-                call_dir = "OUTBOUND" if call.get("direction") == "outbound" else "INBOUND"
-                call_transcript_section += (
-                    f"\n[{call.get('timestamp', '')[:19]}] {call_dir} CALL "
-                    f"({call.get('duration_seconds', 0)}s)\n"
-                    f"{call.get('transcript', '(no transcript)')[:1000]}\n"
-                )
-    except Exception:
-        pass
-
-    prompt = f"""Analyze this {'won' if outcome == 'won' else 'lost'} deal for Americal Patrol (security patrol company).
+    prompt = f"""Analyze this {'won' if outcome == 'won' else 'lost'} deal for {tc.company_name()} ({tc.company_industry()} company).
 
 Contact: {first_name} at {company}
 Property type: {property_type}
@@ -731,7 +564,6 @@ Days in pipeline: {days_in_pipeline}
 
 FULL CONVERSATION TIMELINE:
 {timeline if timeline else "(No messages found)"}
-{call_transcript_section}
 
 Analyze this deal and output JSON with these fields:
 - outcome: "{outcome}"
@@ -749,11 +581,13 @@ Analyze this deal and output JSON with these fields:
 Output ONLY valid JSON, no markdown formatting."""
 
     try:
-        client = anthropic.Anthropic(api_key=config.ANTHROPIC_API_KEY())
-        response = client.messages.create(
+        response = tracked_create(
             model="claude-sonnet-4-6",
             max_tokens=1000,
             messages=[{"role": "user", "content": prompt}],
+            pipeline="sales",
+            client_id=tc.client_id(),
+            api_key=config.ANTHROPIC_API_KEY(),
         )
         analysis_text = response.content[0].text.strip()
 
@@ -785,12 +619,11 @@ Output ONLY valid JSON, no markdown formatting."""
 
 
 def run_won(contact_id: str, reason: str = ""):
-    """Mark a deal as won, update GHL, run win analysis."""
-    from sales_pipeline.ghl_client import GHLClient
+    """Mark a deal as won, update CRM, run win analysis."""
     from sales_pipeline.state import load_state, save_state, mark_won, get_contact
 
     config.validate_config()
-    ghl = GHLClient()
+    ghl = get_crm()
 
     state = load_state()
     entry = get_contact(state, contact_id)
@@ -894,11 +727,10 @@ def run_won(contact_id: str, reason: str = ""):
 
 def run_lost(contact_id: str, reason: str = ""):
     """Mark a deal as lost, transition to nurture, run loss analysis."""
-    from sales_pipeline.ghl_client import GHLClient
     from sales_pipeline.state import load_state, save_state, mark_lost, get_contact
 
     config.validate_config()
-    ghl = GHLClient()
+    ghl = get_crm()
 
     state = load_state()
     entry = get_contact(state, contact_id)
@@ -1000,48 +832,19 @@ def run_migrate():
 
 
 # ---------------------------------------------------------------------------
-# Transcribe calls
-# ---------------------------------------------------------------------------
-
-def run_transcribe(contact_id: str = "all"):
-    """On-demand: transcribe calls for one or all active contacts."""
-    from sales_pipeline.ghl_client import GHLClient
-    from sales_pipeline.call_transcript import (
-        process_new_calls, process_all_active_contacts,
-        load_transcripts, save_transcripts, get_contact_call_context,
-    )
-
-    config.validate_config()
-    ghl = GHLClient()
-
-    if contact_id == "all":
-        stats = process_all_active_contacts(ghl)
-        print(f"Processed {stats['processed']} new calls across "
-              f"{stats['contacts_with_calls']} contacts")
-    else:
-        transcripts = load_transcripts()
-        count = process_new_calls(ghl, contact_id, transcripts)
-        save_transcripts(transcripts)
-        if count:
-            print(f"Transcribed {count} new call(s) for {contact_id}")
-            context = get_contact_call_context(transcripts, contact_id)
-            if context:
-                print(context)
-        else:
-            print(f"No new calls found for {contact_id}")
-
-
-# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 def main():
+    if not tc.is_active():
+        log.info("Client account paused -- skipping pipeline run")
+        sys.exit(0)
+
     parser = argparse.ArgumentParser(
-        description="Americal Patrol Sales Pipeline",
+        description="Sales Pipeline",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python -m sales_pipeline.run_pipeline --hourly           Hourly recency + reply check
   python -m sales_pipeline.run_pipeline --daily            Daily follow-ups + digest
   python -m sales_pipeline.run_pipeline --generate         Generate cold outreach drafts
   python -m sales_pipeline.run_pipeline --send             Send approved drafts
@@ -1049,13 +852,9 @@ Examples:
   python -m sales_pipeline.run_pipeline --won CONTACT_ID   Mark deal as won
   python -m sales_pipeline.run_pipeline --lost CONTACT_ID  Mark deal as lost
   python -m sales_pipeline.run_pipeline --migrate          Migrate old state files
-  python -m sales_pipeline.run_pipeline --transcribe        Transcribe calls for all active contacts
-  python -m sales_pipeline.run_pipeline --transcribe ID     Transcribe calls for a specific contact
         """,
     )
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--hourly", action="store_true",
-                       help="Lightweight hourly check: recency boost + reply cancellation")
     group.add_argument("--daily", action="store_true",
                        help="Run daily follow-ups and send digest")
     group.add_argument("--generate", action="store_true",
@@ -1070,17 +869,12 @@ Examples:
                        help="Mark deal as lost and move to nurture")
     group.add_argument("--migrate", action="store_true",
                        help="One-time migration from old state files")
-    group.add_argument("--transcribe", type=str, metavar="CONTACT_ID",
-                       nargs="?", const="all",
-                       help="Transcribe calls: all active contacts or a specific contact ID")
     parser.add_argument("--reason", type=str, default="",
                         help="Optional reason for --won or --lost")
     args = parser.parse_args()
 
     try:
-        if args.hourly:
-            run_hourly()
-        elif args.daily:
+        if args.daily:
             run_daily()
         elif args.generate:
             run_generate()
@@ -1094,8 +888,6 @@ Examples:
             run_lost(args.lost, args.reason)
         elif args.migrate:
             run_migrate()
-        elif args.transcribe is not None:
-            run_transcribe(args.transcribe)
     except Exception as e:
         log.exception("Pipeline failed: %s", e)
         sys.exit(1)

@@ -16,7 +16,7 @@ Cold outreach uses a simplified matrix:
 import logging
 from datetime import datetime, timedelta, timezone
 
-import anthropic
+from shared_utils.usage_tracker import tracked_create
 
 from sales_pipeline.config import (
     ANTHROPIC_API_KEY,
@@ -45,16 +45,7 @@ from sales_pipeline.templates.unsubscribe import (
 )
 from sales_pipeline.enrichment.prospect_db import find_prospect_match, get_strategic_angle
 from sales_pipeline.learning.learning_analyzer import get_prompt_guidance
-from sales_pipeline.smart_timing import (
-    get_optimal_send_time,
-    get_nurture_send_time,
-    calculate_engagement_time,
-    update_optimal_time_from_reply,
-    classify_velocity,
-    get_proposal_view_send_time,
-    get_channel_for_source,
-    should_recency_boost,
-)
+import tenant_context as tc
 
 log = logging.getLogger(__name__)
 
@@ -99,147 +90,175 @@ def cold_touch_matrix(initial_channel: str) -> dict:
         4: {"channel": alt,             "type": "final"},
     }
 
-# Subject templates per touch type (email only)
-SUBJECT_TEMPLATES = {
-    "check_in": "Following up on security for {company}",
-    "value_add": "Quick thought on {property_type} security for {company}",
-    "calendar": "10 minutes to discuss security for {company}?",
-    "final": "Keeping the door open for {company}",
-}
+# Subject templates per touch type (email only) — uses tenant industry
+def _subject_templates() -> dict:
+    ind = tc.company_industry()
+    return {
+        "check_in": f"Following up \u2014 {ind} for {{company}}",
+        "value_add": f"Quick thought on {{property_type}} {ind} \u2014 {{company}}",
+        "calendar": f"10 minutes to discuss {ind} for {{company}}?",
+        "final": "Keeping the door open \u2014 {company}",
+    }
 
-# Claude prompt templates for COLD OUTREACH follow-ups
-# IMPORTANT: These contacts received a brief introductory email, NOT a proposal or estimate.
-PROMPT_TEMPLATES = {
-    "check_in": (
-        "Write a follow-up email (60-90 words, 2-3 paragraphs) to {first_name} at {company}. "
-        "We previously sent them a short introductory email about security patrol services "
-        "for their {property_type} property. This is a simple check-in to see if they're interested. "
-        "IMPORTANT: We did NOT send a proposal, estimate, or quote — just an intro email. "
-        "Do NOT mention any proposal or estimate. "
-        "Single CTA. No subject line, no signature. End with a short sign-off like 'Best,' or 'Talk soon,' on its own line followed by 'Sam' on the next line."
-        "{enrichment}"
-    ),
-    "value_add": (
-        "Write a follow-up email (70-100 words, 2-3 paragraphs) to {first_name} at {company}. "
-        "We previously sent them a short introductory email about security patrol services. "
-        "Include a brief, relevant insight about security for {property_type} properties. "
-        "IMPORTANT: We did NOT send a proposal or estimate — just an intro email. "
-        "Do NOT reference any proposal. "
-        "Be helpful, not pushy. No subject line, no signature. End with a short sign-off like 'Best,' or 'Talk soon,' on its own line followed by 'Sam' on the next line."
-        "{enrichment}"
-    ),
-    "calendar": (
-        "Write a follow-up email (60-90 words, 2-3 paragraphs) to {first_name} at {company}. "
-        "We previously sent them a short introductory email about security patrol services. "
-        "Offer a brief 10-minute call about security for their {property_type} property. "
-        "IMPORTANT: We did NOT send a proposal or estimate — just an intro email. "
-        "Do NOT reference any proposal. "
-        "Include this booking link: {calendar_link}. "
-        "No subject line, no signature. End with a short sign-off like 'Best,' or 'Talk soon,' on its own line followed by 'Sam' on the next line."
-        "{enrichment}"
-    ),
-    "final": (
-        "Write a final follow-up email (50-75 words, 2-3 paragraphs) to {first_name} at {company}. "
-        "We previously reached out about security patrol services for their {property_type} property "
-        "but haven't heard back. Let them know the door remains open. "
-        "IMPORTANT: We did NOT send a proposal or estimate — just introductory emails. "
-        "Gracious, not pushy. No subject line, no signature. End with a short sign-off like 'Best,' or 'Talk soon,' on its own line followed by 'Sam' on the next line."
-    ),
-}
+SUBJECT_TEMPLATES = None  # Lazy-loaded; use _get_subject_templates()
+
+def _get_subject_templates() -> dict:
+    global SUBJECT_TEMPLATES
+    if SUBJECT_TEMPLATES is None:
+        SUBJECT_TEMPLATES = _subject_templates()
+    return SUBJECT_TEMPLATES
+
+# Claude prompt templates — uses tenant industry
+def _prompt_templates() -> dict:
+    ind = tc.company_industry()
+    return {
+        "check_in": (
+            "Write a brief, warm follow-up (under 60 words) to {first_name} at {company}. "
+            f"This is a check-in about {ind} services for their {{property_type}} property. "
+            "Conversational tone. Single CTA. No subject line, no signature, no sign-off."
+            "{enrichment}"
+        ),
+        "value_add": (
+            "Write a follow-up (under 75 words) to {first_name} at {company}. "
+            f"Include a brief, relevant insight about {ind} for {{property_type}} properties. "
+            "Be helpful, not pushy. Conversational. No subject line, no signature, no sign-off."
+            "{enrichment}"
+        ),
+        "calendar": (
+            "Write a follow-up (under 60 words) to {first_name} at {company}. "
+            f"Offer a brief 10-minute call about {ind} for their {{property_type}} property. "
+            "Include this booking link: {calendar_link}. "
+            "Conversational. No subject line, no signature, no sign-off."
+            "{enrichment}"
+        ),
+        "final": (
+            "Write a final follow-up (under 50 words) to {first_name} at {company}. "
+            f"Let them know the door remains open for {{property_type}} {ind} services. "
+            "Gracious, not pushy. No subject line, no signature, no sign-off."
+        ),
+    }
+
+PROMPT_TEMPLATES = None  # Lazy-loaded
+
+def _get_prompt_templates() -> dict:
+    global PROMPT_TEMPLATES
+    if PROMPT_TEMPLATES is None:
+        PROMPT_TEMPLATES = _prompt_templates()
+    return PROMPT_TEMPLATES
 
 # Post-proposal variants — reference the proposal already sent
-POST_PROPOSAL_PROMPT_TEMPLATES = {
-    "check_in": (
-        "Write a follow-up email (60-90 words, 2-3 paragraphs) to {first_name} at {company}. "
-        "We already sent them a security patrol proposal for their {property_type} property. "
-        "Check in on whether they've had a chance to review it and if they have any questions. "
-        "Single CTA. No subject line, no signature. End with a short sign-off like 'Best,' or 'Talk soon,' on its own line followed by 'Sam' on the next line."
-        "{enrichment}"
-    ),
-    "value_add": (
-        "Write a follow-up email (70-100 words, 2-3 paragraphs) to {first_name} at {company}. "
-        "We already sent them a security patrol proposal for their {property_type} property. "
-        "Include a brief, relevant insight about security for {property_type} properties "
-        "that reinforces why our proposal is worth considering. "
-        "Be helpful, not pushy. No subject line, no signature. End with a short sign-off like 'Best,' or 'Talk soon,' on its own line followed by 'Sam' on the next line."
-        "{enrichment}"
-    ),
-    "calendar": (
-        "Write a follow-up email (60-90 words, 2-3 paragraphs) to {first_name} at {company}. "
-        "We already sent them a security patrol proposal for their {property_type} property. "
-        "Offer a brief 10-minute call to walk through the proposal or answer questions. "
-        "Include this booking link: {calendar_link}. "
-        "No subject line, no signature. End with a short sign-off like 'Best,' or 'Talk soon,' on its own line followed by 'Sam' on the next line."
-        "{enrichment}"
-    ),
-    "final": (
-        "Write a final follow-up email (50-75 words, 2-3 paragraphs) to {first_name} at {company}. "
-        "We sent them a security patrol proposal for their {property_type} property but haven't heard back. "
-        "Let them know the door remains open. "
-        "Gracious, not pushy. No subject line, no signature. End with a short sign-off like 'Best,' or 'Talk soon,' on its own line followed by 'Sam' on the next line."
-    ),
-}
+def _post_proposal_prompt_templates() -> dict:
+    ind = tc.company_industry()
+    return {
+        "check_in": (
+            "Write a brief, warm follow-up (under 60 words) to {first_name} at {company}. "
+            f"We already sent them a {ind} services proposal for their {{property_type}} property. "
+            "Check in on whether they've had a chance to review it and if they have any questions. "
+            "Conversational tone. Single CTA. No subject line, no signature, no sign-off."
+            "{enrichment}"
+        ),
+        "value_add": (
+            "Write a follow-up (under 75 words) to {first_name} at {company}. "
+            f"We already sent them a {ind} services proposal for their {{property_type}} property. "
+            f"Include a brief, relevant insight about {ind} for {{property_type}} properties "
+            "that reinforces why our proposal is worth considering. "
+            "Be helpful, not pushy. Conversational. No subject line, no signature, no sign-off."
+            "{enrichment}"
+        ),
+        "calendar": (
+            "Write a follow-up (under 60 words) to {first_name} at {company}. "
+            f"We already sent them a {ind} services proposal for their {{property_type}} property. "
+            "Offer a brief 10-minute call to walk through the proposal or answer questions. "
+            "Include this booking link: {calendar_link}. "
+            "Conversational. No subject line, no signature, no sign-off."
+            "{enrichment}"
+        ),
+        "final": (
+            "Write a final follow-up (under 50 words) to {first_name} at {company}. "
+            f"We sent them a {ind} services proposal for their {{property_type}} property but haven't heard back. "
+            "Let them know the door remains open. "
+            "Gracious, not pushy. No subject line, no signature, no sign-off."
+        ),
+    }
+
+POST_PROPOSAL_PROMPT_TEMPLATES = None  # Lazy-loaded
+
+def _get_post_proposal_prompt_templates() -> dict:
+    global POST_PROPOSAL_PROMPT_TEMPLATES
+    if POST_PROPOSAL_PROMPT_TEMPLATES is None:
+        POST_PROPOSAL_PROMPT_TEMPLATES = _post_proposal_prompt_templates()
+    return POST_PROPOSAL_PROMPT_TEMPLATES
 
 # Monthly nurture content rotation (5 types, cycles)
-NURTURE_ROTATION = [
-    {
-        "type": "industry_insight",
-        "prompt": (
-            "Write an email (70-100 words, 2-3 paragraphs) to {first_name} at {company} sharing "
-            "a relevant security insight for {property_type} properties. "
-            "Reference a real trend or consideration for the current season ({month}). "
-            "Helpful, not salesy. Single soft CTA. No subject line, no signature."
-            "{win_context}{proposal_context}"
-        ),
-        "subject_hint": "security tip",
-    },
-    {
-        "type": "provider_check",
-        "prompt": (
-            "Write an email (70-100 words, 2-3 paragraphs) to {first_name} at {company}. "
-            "{proposal_context}"
-            "Ask how their current security situation is going for their {property_type} property. "
-            "Be genuinely curious, not competitive. If they're happy with their provider, great. "
-            "If not, offer to have a quick call to discuss what's not working and how we might help. "
-            "Zero pressure. Include this booking link: {calendar_link}. "
-            "No subject line, no signature."
-        ),
-        "subject_hint": "checking in",
-    },
-    {
-        "type": "case_study",
-        "prompt": (
-            "Write an email (70-100 words, 2-3 paragraphs) to {first_name} at {company}. "
-            "Share a quick success story about how professional security patrol "
-            "helped a {property_type} property. Keep it credible. "
-            "Single soft CTA. No subject line, no signature."
-            "{win_context}{proposal_context}"
-        ),
-        "subject_hint": "quick story",
-    },
-    {
-        "type": "seasonal_tip",
-        "prompt": (
-            "Write an email (70-100 words, 2-3 paragraphs) to {first_name} at {company}. "
-            "Share a seasonal security tip relevant to {property_type} properties "
-            "for {month}. Be specific and practical. Single soft CTA. "
-            "No subject line, no signature."
-            "{proposal_context}"
-        ),
-        "subject_hint": "seasonal tip",
-    },
-    {
-        "type": "re_engagement",
-        "prompt": (
-            "Write a brief re-engagement email (50-75 words) to {first_name} at {company}. "
-            "Offer a free, no-obligation security assessment for their {property_type} property. "
-            "Low pressure, keep the door open. Include this booking link: {calendar_link}. "
-            "No subject line, no signature."
-            "{proposal_context}"
-        ),
-        "subject_hint": "free assessment",
-    },
-]
+def _nurture_rotation() -> list:
+    ind = tc.company_industry()
+    return [
+        {
+            "type": "industry_insight",
+            "prompt": (
+                "Write a brief email (50-75 words) to {first_name} at {company} sharing "
+                f"a relevant {ind} insight for {{property_type}} properties. "
+                "Reference a real trend or consideration for the current season ({month}). "
+                "Helpful, not salesy. Single soft CTA. No subject line, no signature."
+                "{win_context}{proposal_context}"
+            ),
+            "subject_hint": f"{ind} tip",
+        },
+        {
+            "type": "provider_check",
+            "prompt": (
+                "Write a brief email (50-75 words) to {first_name} at {company}. "
+                "{proposal_context}"
+                f"Ask how their current {ind} situation is going for their {{property_type}} property. "
+                "Be genuinely curious, not competitive. If they're happy with their provider, great. "
+                "If not, offer to have a quick call to discuss what's not working and how we might help. "
+                "Conversational, zero pressure. Include this booking link: {calendar_link}. "
+                "No subject line, no signature."
+            ),
+            "subject_hint": "checking in",
+        },
+        {
+            "type": "case_study",
+            "prompt": (
+                "Write a brief email (50-75 words) to {first_name} at {company}. "
+                f"Share a quick success story about how professional {ind} services "
+                "helped a {property_type} property. Keep it conversational and credible. "
+                "Single soft CTA. No subject line, no signature."
+                "{win_context}{proposal_context}"
+            ),
+            "subject_hint": "quick story",
+        },
+        {
+            "type": "seasonal_tip",
+            "prompt": (
+                "Write a brief email (50-75 words) to {first_name} at {company}. "
+                f"Share a seasonal {ind} tip relevant to {{property_type}} properties "
+                "for {month}. Be specific and practical. Single soft CTA. "
+                "No subject line, no signature."
+                "{proposal_context}"
+            ),
+            "subject_hint": "seasonal tip",
+        },
+        {
+            "type": "re_engagement",
+            "prompt": (
+                "Write a brief re-engagement email (50-75 words) to {first_name} at {company}. "
+                f"Offer a free, no-obligation {ind} assessment for their {{property_type}} property. "
+                "Low pressure, keep the door open. Include this booking link: {calendar_link}. "
+                "No subject line, no signature."
+                "{proposal_context}"
+            ),
+            "subject_hint": "free assessment",
+        },
+    ]
+
+NURTURE_ROTATION = None  # Lazy-loaded
+
+def _get_nurture_rotation() -> list:
+    global NURTURE_ROTATION
+    if NURTURE_ROTATION is None:
+        NURTURE_ROTATION = _nurture_rotation()
+    return NURTURE_ROTATION
 
 
 # ---------------------------------------------------------------------------
@@ -278,39 +297,30 @@ def detect_channel_path(ghl_client, contact_id: str, proposal_sent_at: str) -> s
 # Claude content generation
 # ---------------------------------------------------------------------------
 
-FOLLOW_UP_SYSTEM_PROMPT = """You are writing follow-up messages on behalf of Sam Alarcon, Vice President at Americal Patrol,
-a licensed, veteran-owned security patrol company (est. 1986) based in Oxnard, CA.
-Americal Patrol serves Ventura County, Orange County, Los Angeles County, and surrounding areas.
+def _build_follow_up_system_prompt_base() -> str:
+    """Build the follow-up system prompt from tenant config."""
+    name = tc.owner_name()
+    title = tc.owner_title()
+    company = tc.company_name()
+    description = tc.company_description()
+    loc_rules = tc.location_rules()
+    loc_section = f"\n{loc_rules}\n" if loc_rules else ""
 
-CRITICAL LOCATION RULE:
-- Reference the correct county based on the prospect's city — do NOT default to Ventura County.
-- If unsure of the county, say "Southern California" instead.
+    return f"""You are writing follow-up messages on behalf of {name}, {title} at {company},
+{description}
+{loc_section}
+Write conversationally — like texting a business acquaintance. Keep messages brief and personal.
+ONE clear CTA per message. Never sound like a template or mass email.
+Do NOT include a signature, sign-off, or "Best regards"."""
 
-PROPERTY LANGUAGE RULE:
-- NEVER say "your other property", "the other property", or "another property" — it sounds vague and confusing.
-- If you know the address or property name, reference it specifically (e.g., "your Birch St. property").
-- If you know the company name, reference it (e.g., "security for Colour Republic").
-- If you only know the city, reference the area (e.g., "your Oxnard property").
-- As a last resort, say "your property" or "your site" — never "other".
-
-EMAIL FORMAT RULES:
-- This is a PROFESSIONAL EMAIL, not a text message. Structure it like a real email.
-- Start with a greeting on its own line (e.g., "Hey Dan,")
-- Use 2-3 SHORT paragraphs separated by blank lines — never one run-on block of text.
-- Paragraph 1: Context or reason for reaching out (1-2 sentences).
-- Paragraph 2: Value or insight (1-2 sentences).
-- Paragraph 3: Clear CTA / ask (1 sentence).
-- Keep the overall tone warm and conversational, but formatted like a proper email.
-- ONE clear CTA per message. Never sound like a template or mass email.
-- Do NOT include a full signature block — it is added automatically.
-- DO end with a short sign-off like "Best," or "Talk soon," followed by "Sam" on the next line.
-- NEVER use markdown formatting. No [brackets](links), no **bold**, no *italics*.
-- Write URLs as plain text — never wrap them in markdown link syntax.
-- NEVER use em dashes (—). Use commas, periods, or rewrite the sentence instead."""
+FOLLOW_UP_SYSTEM_PROMPT = None  # Lazy-loaded
 
 
 def _build_system_prompt() -> str:
     """Build system prompt with learning insights appended."""
+    global FOLLOW_UP_SYSTEM_PROMPT
+    if FOLLOW_UP_SYSTEM_PROMPT is None:
+        FOLLOW_UP_SYSTEM_PROMPT = _build_follow_up_system_prompt_base()
     base = FOLLOW_UP_SYSTEM_PROMPT
     try:
         guidance = get_prompt_guidance()
@@ -322,12 +332,14 @@ def _build_system_prompt() -> str:
 
 
 def _call_claude(prompt: str) -> str:
-    client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY())
-    response = client.messages.create(
+    response = tracked_create(
         model="claude-sonnet-4-6",
         max_tokens=300,
         system=_build_system_prompt(),
         messages=[{"role": "user", "content": prompt}],
+        pipeline="sales",
+        client_id=tc.client_id(),
+        api_key=ANTHROPIC_API_KEY(),
     )
     return response.content[0].text.strip()
 
@@ -370,7 +382,7 @@ def _build_conversation_context(
     lines = []
     for msg in recent:
         direction = "THEM" if msg.get("direction") == "inbound" else "US"
-        body = str(msg.get("body") or "").strip()
+        body = (msg.get("body") or "").strip()
         if not body:
             continue
         # Truncate long messages to keep context manageable
@@ -378,16 +390,6 @@ def _build_conversation_context(
             body = body[:200] + "..."
         msg_type = msg.get("type", "").upper()
         lines.append(f"[{direction} via {msg_type}]: {body}")
-
-    # Include call transcript summaries
-    try:
-        from sales_pipeline.call_transcript import load_transcripts, get_contact_call_context
-        transcripts = load_transcripts()
-        call_context = get_contact_call_context(transcripts, contact_id, since_iso=since_iso)
-        if call_context:
-            lines.append(call_context)
-    except Exception:
-        pass  # Don't break follow-ups if transcript loading fails
 
     if not lines:
         return ""
@@ -427,7 +429,7 @@ def _check_active_conversation(ghl_client, contact_id: str, since_iso: str = Non
     for msg in messages:
         if msg.get("direction") != "inbound":
             continue
-        body = str(msg.get("body") or "").lower()
+        body = (msg.get("body") or "").lower()
         if any(phrase in body for phrase in not_interested_phrases):
             return {
                 "active": False,
@@ -530,16 +532,13 @@ def get_touch_content(
         conv_context = _build_conversation_context(ghl_client, contact_id, since_iso=since_iso)
         enrichment += conv_context
 
-    # Sanitize property_type — "other" is a database default, not a real type
-    display_property_type = property_type if property_type != "other" else "commercial"
-
     # Use post-proposal templates when contact already received a proposal
-    templates = POST_PROPOSAL_PROMPT_TEMPLATES if phase == "post_proposal" else PROMPT_TEMPLATES
+    templates = _get_post_proposal_prompt_templates() if phase == "post_proposal" else _get_prompt_templates()
 
     prompt = templates[touch_type].format(
         first_name=first_name,
         company=company,
-        property_type=display_property_type,
+        property_type=property_type,
         calendar_link=CALENDAR_LINK() if touch_type == "calendar" else "",
         enrichment=enrichment,
     )
@@ -550,7 +549,7 @@ def get_touch_content(
         subject = ""
         body = body[:SMS_MAX_LENGTH]
     else:
-        subject = SUBJECT_TEMPLATES[touch_type].format(
+        subject = _get_subject_templates()[touch_type].format(
             company=company,
             property_type=property_type,
         )
@@ -612,7 +611,7 @@ def _classify_reply(ghl_client, contact_id: str, since_iso: str) -> dict:
 
     # Use the most recent inbound message for classification
     latest = max(inbound_messages, key=lambda m: m.get("timestamp", ""))
-    body = str(latest.get("body") or "").lower().strip()
+    body = (latest.get("body") or "").lower().strip()
 
     # Hot signals — ready to move forward
     hot_phrases = [
@@ -673,7 +672,7 @@ def _detect_lead_channel(ghl_client, contact_id: str) -> str | None:
             if msg.get("direction") == "inbound":
                 inbound.append({
                     "timestamp": msg.get("dateAdded", ""),
-                    "type": str(msg.get("type") or "").lower(),
+                    "type": (msg.get("type") or "").lower(),
                 })
 
     if not inbound:
@@ -718,8 +717,6 @@ def run_follow_ups(ghl_client, state: dict = None) -> dict:
         "cold_drafts_generated": [],
         "nurture_sent": [],
         "proposal_views": [],
-        "scheduled": [],       # messages scheduled for later delivery
-        "cancelled": [],       # scheduled messages cancelled due to reply
         "errors": [],
     }
 
@@ -752,20 +749,6 @@ def run_follow_ups(ghl_client, state: dict = None) -> dict:
                     summary["replied"].append(contact_id)
                     log.info("HOT reply from %s — stopping sequence, moving to Negotiating", contact_id)
 
-                    # Cancel any pending scheduled messages
-                    for msg_id in entry.get("scheduled_message_ids", []):
-                        if ghl_client.cancel_scheduled_message(msg_id):
-                            summary["cancelled"].append({
-                                "contact_id": contact_id,
-                                "message_id": msg_id,
-                                "reason": "lead replied",
-                            })
-                    entry["scheduled_message_ids"] = []
-                    # Evolve optimal send time from reply
-                    if entry.get("replied_at"):
-                        update_optimal_time_from_reply(entry, entry["replied_at"])
-                        entry["engagement_velocity"] = classify_velocity(entry)
-
                     if phase == "post_proposal":
                         negotiating_stage = NEGOTIATING_STAGE()
                         if negotiating_stage:
@@ -782,9 +765,6 @@ def run_follow_ups(ghl_client, state: dict = None) -> dict:
                     entry["soft_replied"] = True
                     entry["soft_replied_at"] = datetime.now(timezone.utc).isoformat()
                     entry["soft_reply_message"] = reply_info["message"]
-                    # Evolve optimal send time from soft reply
-                    update_optimal_time_from_reply(entry, entry["soft_replied_at"])
-                    entry["engagement_velocity"] = classify_velocity(entry)
                     log.info(
                         "SOFT reply from %s ('%s') — slowing cadence, keeping in sequence",
                         contact_id, reply_info["message"][:80],
@@ -853,16 +833,10 @@ def run_follow_ups(ghl_client, state: dict = None) -> dict:
                         if channel == "email":
                             html_body = wrap_email_body(body, include_signature=True)
                             html_body = wrap_email_with_unsubscribe(html_body, contact_id)
-                            view_time = get_proposal_view_send_time(entry)
-                            msg_id = ghl_client.send_email(contact_id, subject, html_body, scheduled_at=view_time)
-                            if view_time and msg_id:
-                                entry.setdefault("scheduled_message_ids", []).append(msg_id)
+                            ghl_client.send_email(contact_id, subject, html_body)
                         else:
                             sms_body = body + "\n" + build_sms_opt_out_text()
-                            view_time = get_proposal_view_send_time(entry)
-                            msg_id = ghl_client.send_sms(contact_id, sms_body, scheduled_at=view_time)
-                            if view_time and msg_id:
-                                entry.setdefault("scheduled_message_ids", []).append(msg_id)
+                            ghl_client.send_sms(contact_id, sms_body)
 
                         log.info("Sent proposal-view follow-up (%s) to %s", channel, contact_id)
                         summary["sent"].append({
@@ -933,17 +907,6 @@ def run_follow_ups(ghl_client, state: dict = None) -> dict:
             touch_info = POST_PROPOSAL_MATRIX[path][touch_number]
             channel = touch_info["channel"]
 
-            # Calculate optimal send time
-            ref_ts = entry.get("proposal_sent_at") or entry.get("first_outreach_at")
-            send_time = get_optimal_send_time(entry, touch_number, ref_ts, phase="post_proposal") if ref_ts else None
-
-            # Channel mirroring for first touch
-            if touch_number == 1 and entry.get("engagement_source"):
-                mirrored = get_channel_for_source(entry["engagement_source"], channel)
-                if mirrored != channel:
-                    channel = mirrored
-                    touch_info = {**touch_info, "channel": channel}
-
             # If the lead is actively responding on a specific channel, match it
             lead_channel = _detect_lead_channel(ghl_client, contact_id)
             if lead_channel:
@@ -964,29 +927,16 @@ def run_follow_ups(ghl_client, state: dict = None) -> dict:
             if channel == "email":
                 html_body = wrap_email_body(body, include_signature=True)
                 html_body = wrap_email_with_unsubscribe(html_body, contact_id)
-                msg_id = ghl_client.send_email(contact_id, subject, html_body, scheduled_at=send_time)
+                ghl_client.send_email(contact_id, subject, html_body)
             else:
                 sms_body = body + "\n" + build_sms_opt_out_text()
-                msg_id = ghl_client.send_sms(contact_id, sms_body, scheduled_at=send_time)
-
-            # Track scheduled message ID for cancel-on-reply
-            if send_time and msg_id:
-                entry.setdefault("scheduled_message_ids", []).append(msg_id)
+                ghl_client.send_sms(contact_id, sms_body)
 
             record_touch(state, contact_id, touch_number, channel)
             summary["sent"].append({
                 "contact_id": contact_id,
                 "touch": touch_number,
                 "channel": channel,
-                "phase": "post_proposal",
-            })
-            summary["scheduled"].append({
-                "contact_id": contact_id,
-                "first_name": entry.get("first_name", ""),
-                "organization": entry.get("organization", ""),
-                "touch": touch_number,
-                "channel": channel,
-                "scheduled_for": send_time.isoformat() if send_time else "immediate",
                 "phase": "post_proposal",
             })
             log.info(
@@ -1056,8 +1006,9 @@ def run_follow_ups(ghl_client, state: dict = None) -> dict:
                        or "your company")
 
             # Smart content rotation
-            rotation_idx = (nurture_touch - 1) % len(NURTURE_ROTATION)
-            rotation = NURTURE_ROTATION[rotation_idx]
+            nurture_list = _get_nurture_rotation()
+            rotation_idx = (nurture_touch - 1) % len(nurture_list)
+            rotation = nurture_list[rotation_idx]
 
             # Build win context for case_study/industry_insight types
             win_context = ""
@@ -1110,12 +1061,10 @@ def run_follow_ups(ghl_client, state: dict = None) -> dict:
                 proposal_context += conv_context
 
             month = datetime.now().strftime("%B %Y")
-            # Sanitize property_type — "other" is a database default
-            display_property_type = property_type if property_type != "other" else "commercial"
             prompt = rotation["prompt"].format(
                 first_name=first_name,
                 company=company,
-                property_type=display_property_type,
+                property_type=property_type,
                 month=month,
                 calendar_link=CALENDAR_LINK(),
                 win_context=win_context,
@@ -1127,10 +1076,7 @@ def run_follow_ups(ghl_client, state: dict = None) -> dict:
 
             html_body = wrap_email_body(body, include_signature=True)
             html_body = wrap_email_with_unsubscribe(html_body, contact_id)
-            send_time = get_nurture_send_time(n_entry)
-            msg_id = ghl_client.send_email(contact_id, subject, html_body, scheduled_at=send_time)
-            if send_time and msg_id:
-                n_entry.setdefault("scheduled_message_ids", []).append(msg_id)
+            ghl_client.send_email(contact_id, subject, html_body)
 
             record_nurture_touch(state, contact_id)
             summary["nurture_sent"].append({

@@ -1,124 +1,76 @@
 """
-Email Assistant (Larry) -- Classifier V2
-Uses Claude API to analyze incoming emails with thread context,
-two-tier confidence, near-zero skip policy, and style learning.
+Email Assistant (Larry) — Classifier
+Uses Claude API to analyze incoming emails and draft responses.
+Tenant-specific values are loaded from tenant_context.
 """
 
 import json
 import logging
 import os
+import sys
 from pathlib import Path
 
-import anthropic
+from shared_utils.usage_tracker import tracked_create
+
+# Ensure project root is on path for tenant_context import
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
+
+import tenant_context as tc
 
 from email_assistant.config import (
     COMPANY_CONTEXT,
-    CONFIDENCE_THRESHOLD_KNOWN,
-    CONFIDENCE_THRESHOLD_UNKNOWN,
+    CONFIDENCE_THRESHOLD,
     CLAUDE_MODEL,
     CLAUDE_MAX_TOKENS,
 )
 
 log = logging.getLogger(__name__)
 
-STYLE_GUIDE_FILE = Path(__file__).resolve().parent / "learning" / "style_guide.json"
+_SYSTEM_PROMPT = (
+    f"You are Larry, the business assistant for {tc.company_legal_name()}.\n"
+    f"Your job is to analyze incoming emails to {tc.gmail_account()} and decide how to respond.\n\n"
+    f"{COMPANY_CONTEXT}\n\n"
+    f"INSTRUCTIONS:\n"
+    f"1. Determine if this email is from a client or potential client needing a response.\n"
+    f"2. Assess your confidence (0.0-1.0) in drafting an appropriate response.\n"
+    f"3. If confident (>= {CONFIDENCE_THRESHOLD}): draft a professional, approachable reply.\n"
+    f"4. If uncertain (< {CONFIDENCE_THRESHOLD}), or the email involves pricing, contracts, billing,\n"
+    f"   complaints, or anything requiring {tc.owner_name()}'s judgment: prepare an escalation summary.\n"
+    f"5. If the email is spam, a newsletter that slipped through, or doesn't need a response: skip it.\n\n"
+    f"ALWAYS ESCALATE (regardless of confidence):\n"
+    f"- Pricing or quote requests\n"
+    f"- Contract or agreement questions\n"
+    f"- Billing, invoice, or payment issues\n"
+    f"- Complaints or service issues\n"
+    f"- Scheduling changes or new service requests\n"
+    f"- Anything legal or HR-related\n"
+    f"- Anything you're not 100% sure about\n\n"
+    f"RESPOND IN VALID JSON ONLY — no markdown fencing, no extra text:\n"
+    f'{{\n'
+    f'  "action": "draft_response" | "escalate" | "skip",\n'
+    f'  "confidence": 0.0 to 1.0,\n'
+    f'  "category": "service_inquiry" | "scheduling" | "billing" | "complaint" | "report_question" | "general" | "new_inquiry" | "spam" | "not_applicable",\n'
+    f'  "reasoning": "Brief explanation of your decision",\n'
+    f'  "draft_subject": "Re: [original subject]",\n'
+    f'  "draft_body": "The full email body you would send (WITHOUT signature — it is added automatically). Leave empty if action is skip.",\n'
+    f'  "escalation_summary": "If escalating: summary for {tc.owner_name()} of what the email says, your proposed response, and what you need guidance on. Leave empty if not escalating."\n'
+    f'}}'
+)
 
 
-def _load_style_guidance():
-    """Load learned style patterns from Sam's edits, if available."""
-    if not STYLE_GUIDE_FILE.exists():
-        return ""
-    try:
-        data = json.loads(STYLE_GUIDE_FILE.read_text(encoding="utf-8"))
-        patterns = data.get("patterns", [])
-        if not patterns:
-            return ""
-        lines = "\n".join(f"- {p}" for p in patterns[:10])
-        return (
-            f"\n\nSTYLE GUIDANCE (learned from Sam's past edits -- follow these):\n"
-            f"{lines}\n"
-        )
-    except (json.JSONDecodeError, OSError):
-        return ""
-
-
-def _build_system_prompt(is_known_client):
-    """Build the system prompt with appropriate confidence threshold."""
-    threshold = CONFIDENCE_THRESHOLD_KNOWN if is_known_client else CONFIDENCE_THRESHOLD_UNKNOWN
-    style = _load_style_guidance()
-
-    return f"""You are Larry, the business assistant for Americal Patrol, Inc.
-Your job is to analyze incoming emails to americalpatrol@gmail.com and decide how to respond.
-
-{COMPANY_CONTEXT}
-{style}
-
-INSTRUCTIONS:
-1. Determine if this email is from a client or potential client needing a response.
-2. Assess your confidence (0.0-1.0) in drafting an appropriate response.
-3. If confident (>= {threshold}): draft a professional, approachable reply.
-4. If uncertain (< {threshold}), or the email involves pricing, contracts, billing,
-   complaints, or anything requiring Sam's judgment: prepare an escalation summary.
-
-CRITICAL -- COURTESY THANKS FROM KNOWN CLIENTS:
-If this is a brief "thank you" / "got it" / "appreciate it" / "will do" acknowledgment
-from a known client (is_known_client=True in the user prompt context), action MUST be
-"draft_response", NOT "skip". Draft a warm 1-2 sentence reply, e.g.:
-  "You're very welcome, [first name]. Happy to help -- please don't hesitate to reach
-  out if there's anything else we can do."
-A warm reply to a client's thanks is part of the relationship; skipping is rude.
-
-CRITICAL -- NEAR-ZERO SKIP POLICY:
-This email already passed our noise filters (newsletters, noreply, internal, spam).
-If it reached you, it almost certainly deserves a response or escalation.
-SKIP IS ALLOWED ONLY FOR:
-- Out-of-office / auto-reply messages that slipped the filter
-- Duplicate forwards of content already processed
-- Clearly misdirected emails (wrong company entirely)
-You MUST provide a specific skip_reason if you skip. When in doubt, ESCALATE -- never skip.
-NOTE: A client saying "thanks" is NOT a valid skip reason -- see rule above.
-
-ALWAYS ESCALATE (regardless of confidence):
-- Pricing or quote requests
-- Contract or agreement questions
-- Billing, invoice, or payment issues
-- Complaints or service issues
-- Scheduling changes or new service requests
-- Anything legal or HR-related
-- Anything you're not 100% sure about
-
-RESPOND IN VALID JSON ONLY -- no markdown fencing, no extra text:
-{{
-  "action": "draft_response" | "escalate" | "skip",
-  "confidence": 0.0 to 1.0,
-  "category": "service_inquiry" | "scheduling" | "billing" | "complaint" | "report_question" | "general" | "new_inquiry" | "spam" | "not_applicable",
-  "reasoning": "Brief explanation of your decision",
-  "draft_subject": "Re: [original subject]",
-  "draft_body": "The full email body you would send (WITHOUT signature -- it is added automatically). Leave empty if action is skip.",
-  "escalation_summary": "If escalating: summary for Sam of what the email says, your proposed response, and what you need guidance on. Leave empty if not escalating.",
-  "skip_reason": "REQUIRED if action is skip. Specific reason this email should be ignored."
-}}"""
-
-
-def analyze_and_draft(email_data, is_known_client=False, thread_context=None):
+def analyze_and_draft(email_data):
     """
-    Send email to Claude for analysis with optional thread context.
-    Returns parsed JSON result. On failure, returns escalation action.
+    Send email to Claude for analysis. Returns parsed JSON result.
+    On failure, returns an escalation action so the email isn't lost.
     """
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if not api_key:
         log.error("ANTHROPIC_API_KEY not set")
         return _fallback_escalation(email_data, "ANTHROPIC_API_KEY not set")
 
-    parts = []
-    if thread_context and len(thread_context) > 1:
-        parts.append("--- CONVERSATION HISTORY (oldest first) ---")
-        for i, msg in enumerate(thread_context[:-1]):
-            parts.append(f"\n[Message {i+1}] From: {msg['from']} | Date: {msg['date']}")
-            parts.append(msg["body"])
-        parts.append("\n--- CURRENT EMAIL (respond to this) ---")
-
-    parts.append(
+    user_prompt = (
         f"From: {email_data['from']}\n"
         f"To: {email_data['to']}\n"
         f"Subject: {email_data['subject']}\n"
@@ -127,19 +79,20 @@ def analyze_and_draft(email_data, is_known_client=False, thread_context=None):
         f"{email_data['body'][:3000]}"
     )
 
-    user_prompt = "\n".join(parts)
-    system_prompt = _build_system_prompt(is_known_client)
-
     try:
-        client = anthropic.Anthropic(api_key=api_key)
-        response = client.messages.create(
+        response = tracked_create(
             model=CLAUDE_MODEL,
             max_tokens=CLAUDE_MAX_TOKENS,
-            system=system_prompt,
+            system=_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_prompt}],
+            pipeline="email",
+            client_id=tc.client_id(),
+            api_key=api_key,
         )
 
         text = response.content[0].text.strip()
+
+        # Strip markdown fencing if present
         if text.startswith("```"):
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]
         if text.endswith("```"):
@@ -149,18 +102,19 @@ def analyze_and_draft(email_data, is_known_client=False, thread_context=None):
 
         result = json.loads(text)
 
+        # Validate required fields
         for field in ("action", "confidence", "category"):
             if field not in result:
                 log.warning(f"Missing field '{field}' in classifier response")
-                return _fallback_escalation(email_data, f"Malformed response: missing {field}")
+                return _fallback_escalation(email_data, f"Malformed classifier response: missing {field}")
 
-        threshold = CONFIDENCE_THRESHOLD_KNOWN if is_known_client else CONFIDENCE_THRESHOLD_UNKNOWN
-        if result["action"] == "draft_response" and result["confidence"] < threshold:
-            log.info(f"Confidence {result['confidence']:.2f} below threshold {threshold} -- escalating")
+        # Force escalation if confidence below threshold even when action is draft_response
+        if result["action"] == "draft_response" and result["confidence"] < CONFIDENCE_THRESHOLD:
+            log.info(f"Confidence {result['confidence']:.2f} below threshold — escalating")
             result["action"] = "escalate"
             if not result.get("escalation_summary"):
                 result["escalation_summary"] = (
-                    f"Confidence was {result['confidence']:.2f} (below {threshold}).\n\n"
+                    f"Confidence was {result['confidence']:.2f} (below {CONFIDENCE_THRESHOLD}).\n\n"
                     f"Proposed response:\n{result.get('draft_body', '(none)')}\n\n"
                     f"Reasoning: {result.get('reasoning', '(none)')}"
                 )
@@ -182,11 +136,11 @@ def _fallback_escalation(email_data, reason):
         "action": "escalate",
         "confidence": 0.0,
         "category": "general",
-        "reasoning": f"Classifier error -- escalating to Sam. Reason: {reason}",
+        "reasoning": f"Classifier error — escalating to {tc.owner_name()}. Reason: {reason}",
         "draft_subject": "",
         "draft_body": "",
         "escalation_summary": (
-            f"[AUTOMATED ESCALATION -- Classifier Error]\n\n"
+            f"[AUTOMATED ESCALATION — Classifier Error]\n\n"
             f"Reason: {reason}\n\n"
             f"Original email from: {email_data.get('from', 'unknown')}\n"
             f"Subject: {email_data.get('subject', 'unknown')}\n\n"
