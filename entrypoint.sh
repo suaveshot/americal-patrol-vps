@@ -72,6 +72,15 @@ persist_file /app/payment_guard/audit_log.jsonl    /app/data/payment_guard/audit
 # Tenant config (active flag written by payment guard)
 persist_file /app/tenant_config.json               /app/data/tenant_config.json
 
+# Win-Back
+persist_file /app/win_back/winback_state.json  /app/data/win_back/winback_state.json
+persist_file /app/win_back/automation.log       /app/data/win_back/automation.log
+
+# Review Engine
+persist_file /app/review_engine/review_state.json      /app/data/review_engine/review_state.json
+persist_file /app/review_engine/competitor_data.json    /app/data/review_engine/competitor_data.json
+persist_file /app/review_engine/automation.log          /app/data/review_engine/automation.log
+
 echo "State persistence ready."
 
 # Decode OAuth tokens from environment variables (first run only)
@@ -118,6 +127,12 @@ PATH=/usr/local/bin:/usr/bin:/bin
 5 16 * * * root . /etc/container_env.sh && cd /app && python3 -m payment_guard.run_payment_guard 2>&1 | tee -a /var/log/ap-payment-guard.log > /proc/1/fd/1
 # Usage Aggregator (11:00 PM Pacific = 06:00 UTC next day)
 0 6 * * * root . /etc/container_env.sh && cd /app && python3 -m usage_tracker.aggregate_usage 2>&1 | tee -a /var/log/ap-usage.log > /proc/1/fd/1
+# Win-Back (weekly Monday 10 AM Pacific = 17:00 UTC)
+0 17 * * 1 root . /etc/container_env.sh && cd /app && python3 -m win_back.run_winback 2>&1 | tee -a /var/log/ap-winback.log > /proc/1/fd/1
+# Review Engine - Respond to reviews (daily 9 AM Pacific = 16:00 UTC)
+0 16 * * * root . /etc/container_env.sh && cd /app && python3 review_engine/run_reviews.py --respond 2>&1 | tee -a /var/log/ap-reviews.log > /proc/1/fd/1
+# Review Engine - Competitor monitoring (1st of month 8 AM Pacific = 15:00 UTC)
+0 15 1 * * root . /etc/container_env.sh && cd /app && python3 review_engine/run_reviews.py --competitors 2>&1 | tee -a /var/log/ap-reviews.log > /proc/1/fd/1
 CRONEOF
 chmod 0644 /etc/cron.d/ap
 cron

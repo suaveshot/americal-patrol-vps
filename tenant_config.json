@@ -6,12 +6,157 @@
     "legal_name": "Americal Patrol, Inc.",
     "phone": "(805) 515-3834",
     "address": "Ventura County, CA",
+    "city": "Ventura",
+    "state": "CA",
     "website": "americalpatrol.com",
-    "website_url": "https://americalpatrol.com"
+    "website_url": "https://americalpatrol.com",
+    "industry": "security",
+    "founded_year": 1986,
+    "tagline": "Professional Security Services Since 1986",
+    "service_areas": ["Ventura County", "Santa Barbara County", "Los Angeles County"]
   },
   "contact": {
     "owner_name": "Sam Alarcon",
-    "owner_email": "salarcon@americalpatrol.com"
+    "owner_title": "Operations Manager",
+    "owner_email": "salarcon@americalpatrol.com",
+    "owner_phone": "(805) 515-3834"
   },
-  "usage_thresholds": {}
+  "branding": {
+    "logo_url": "",
+    "banner_url": "",
+    "headshot_url": "",
+    "primary_color": "#1a1a2e",
+    "signature_html_override": null
+  },
+  "ai_context": {
+    "company_description": "Americal Patrol is a professional security services company founded in 1986, providing armed and unarmed guard services, mobile patrol, event security, and loss prevention across Ventura County, Santa Barbara County, and Los Angeles County.",
+    "services_list": [
+      "Armed & Unarmed Guard Services",
+      "Mobile Patrol",
+      "Event Security",
+      "Loss Prevention",
+      "Fire Watch",
+      "Standing Guard",
+      "Vehicle Patrol"
+    ],
+    "selling_points": [
+      "Serving Southern California since 1986",
+      "Licensed, bonded, and insured",
+      "24/7 professional security coverage",
+      "Experienced, trained guard force",
+      "Custom security plans for every client",
+      "Daily activity reports with full transparency",
+      "Incident-free track record at client properties"
+    ],
+    "voice_agent_personality": "Professional, calm, authoritative. Security industry expert with 40 years of experience.",
+    "email_response_guidelines": "Always reference our 40 years of experience. Offer a free security assessment. Emphasize reliability and professionalism.",
+    "property_angles": {
+      "commercial": "24/7 coverage with daily activity reports. Zero tolerance for unauthorized access.",
+      "residential": "Professional security that keeps residents safe and property values protected.",
+      "industrial": "Loss prevention and access control for manufacturing and warehouse facilities.",
+      "retail": "Visible deterrence and loss prevention that protects your bottom line.",
+      "hoa": "Community patrol with detailed daily reports and incident documentation."
+    },
+    "location_rules": "Primary service area is Ventura County. Also serves Santa Barbara County and Los Angeles County. When discussing a prospect's location, reference their specific city and the security challenges common there."
+  },
+  "integrations": {
+    "ghl_location_id_env": "GHL_LOCATION_ID",
+    "ghl_api_key_env": "GHL_API_KEY",
+    "gmail_account": "americalpatrol@gmail.com",
+    "ga4_property_id": "",
+    "gsc_site_url": "",
+    "gbp_account_id": "",
+    "gbp_location_id": "",
+    "google_ads_customer_id": "",
+    "google_ads_login_customer_id": ""
+  },
+  "outreach": {
+    "sending_domain": "msg.americalpatrol.com",
+    "sender_email": "salarcon@americalpatrol.com",
+    "sender_name": "Sam Alarcon",
+    "unsubscribe_fallback_email": "salarcon@americalpatrol.com"
+  },
+  "providers": {
+    "crm": "ghl",
+    "email": "gmail",
+    "sms": "ghl",
+    "reviews": "gbp"
+  },
+  "provider_config": {
+    "ghl": {
+      "api_key_env": "GHL_API_KEY",
+      "location_id_env": "GHL_LOCATION_ID",
+      "base_url": "https://services.leadconnectorhq.com",
+      "api_version": "2021-04-15"
+    },
+    "gmail": {
+      "credentials_path": "patrol_automation/credentials.json",
+      "token_path": "patrol_automation/token.json",
+      "sender_email_env": "WATCHDOG_EMAIL_FROM"
+    },
+    "gbp": {
+      "account_id": "",
+      "location_id": "",
+      "token_path": "gbp_automation/gbp_token.json"
+    }
+  },
+  "pipelines_enabled": [
+    "sales_pipeline",
+    "email_assistant",
+    "watchdog",
+    "call_intelligence",
+    "payment_guard",
+    "usage_tracker",
+    "patrol_automation",
+    "win_back",
+    "review_engine"
+  ],
+  "usage_thresholds": {
+    "pro": {"monthly_cost_limit_usd": 15.00},
+    "ultra": {"monthly_cost_limit_usd": 40.00}
+  },
+  "win_back": {
+    "enabled": true,
+    "inactivity_days": 90,
+    "mode": "ai_personalized",
+    "simple_template_email": "Hi {first_name}, it's been a while since your last security service with {company_name}. We'd love to have you back! Give us a call at {phone} or visit {website}.",
+    "simple_template_sms": "Hi {first_name}, we miss you at {company_name}! Give us a call at {phone}.",
+    "discount_percentage": 10,
+    "discount_code": "COMEBACK",
+    "discount_expiry_days": 30,
+    "channels": ["email", "sms"],
+    "max_per_run": 10,
+    "run_day": "monday",
+    "exclude_tags": ["do_not_contact", "active_deal", "vip"],
+    "recovery_window_days": 30,
+    "cooldown_days": 90,
+    "limits": {"max_ai_messages_per_day": 25}
+  },
+  "review_engine_config": {
+    "auto_respond": false,
+    "respond_to_stars": [1, 2, 3, 4, 5],
+    "response_tone": "professional_warm",
+    "negative_review_alert": true,
+    "negative_star_threshold": 2,
+    "competitor_tracking": {
+      "enabled": true,
+      "competitors": [],
+      "auto_discover": true,
+      "city": "Ventura",
+      "industry": "security"
+    },
+    "limits": {"max_responses_per_day": 20, "max_tokens_per_response": 500}
+  },
+  "owner_digest": {
+    "enabled": true,
+    "send_time": "18:00",
+    "channels": ["email", "sms"],
+    "sms_recipient": "",
+    "email_recipient": "salarcon@americalpatrol.com"
+  },
+  "roi_tracking": {
+    "average_deal_value_usd": 3000,
+    "lead_conversion_rate": 0.25,
+    "average_service_value_usd": 500
+  }
 }

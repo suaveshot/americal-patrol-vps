@@ -119,3 +119,84 @@ def tracked_create(
     _log_usage(pipeline, client_id, model, input_tokens, output_tokens, est_cost)
 
     return response
+
+
+def log_usage(pipeline: str, service: str, data: dict, client_id: str = ""):
+    """
+    Log a non-Claude API usage event (Vapi, Twilio SMS, Google API, etc.).
+
+    Args:
+        pipeline:  Pipeline name (e.g., "win_back", "receptionist", "reviews")
+        service:   Service identifier (e.g., "twilio_sms", "vapi", "google_places")
+        data:      Must include "cost_usd" key. Other keys are stored as metadata.
+        client_id: Client identifier. Falls back to tenant_context if empty.
+    """
+    if not client_id:
+        try:
+            import tenant_context as tc
+            client_id = tc.client_id()
+        except Exception:
+            client_id = "unknown"
+
+    USAGE_LOGS_DIR.mkdir(exist_ok=True)
+    month = datetime.now().strftime("%Y%m")
+    log_file = USAGE_LOGS_DIR / f"{client_id}_{month}.jsonl"
+
+    record = {
+        "ts": datetime.now().isoformat(),
+        "pipeline": pipeline,
+        "service": service,
+        "est_cost_usd": data.get("cost_usd", 0.0),
+        **{k: v for k, v in data.items() if k != "cost_usd"},
+    }
+
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(json.dumps(record, default=str) + "\n")
+
+
+def check_budget(client_id: str, monthly_limit_usd: float = 0.0) -> dict:
+    """
+    Check current month's spending against budget limit.
+
+    Args:
+        client_id:         Client identifier.
+        monthly_limit_usd: Monthly budget cap. If 0, reads from tenant_config usage_thresholds.
+
+    Returns:
+        {"used_usd": float, "limit_usd": float, "pct": float, "ok": bool}
+    """
+    if monthly_limit_usd <= 0:
+        try:
+            import tenant_context as tc
+            thresholds = tc.usage_thresholds()
+            for tier in ["all_in_one", "ultra", "pro", "starter"]:
+                if tier in thresholds:
+                    monthly_limit_usd = thresholds[tier].get("monthly_cost_limit_usd", 100.0)
+                    break
+        except Exception:
+            monthly_limit_usd = 100.0
+
+    month = datetime.now().strftime("%Y%m")
+    log_file = USAGE_LOGS_DIR / f"{client_id}_{month}.jsonl"
+
+    total = 0.0
+    if log_file.exists():
+        with open(log_file, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    record = json.loads(line)
+                    total += record.get("est_cost_usd", 0.0)
+                except json.JSONDecodeError:
+                    continue
+
+    pct = (total / monthly_limit_usd * 100) if monthly_limit_usd > 0 else 0.0
+
+    return {
+        "used_usd": round(total, 6),
+        "limit_usd": monthly_limit_usd,
+        "pct": round(pct, 1),
+        "ok": pct < 100,
+    }
