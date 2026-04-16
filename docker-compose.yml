@@ -35,6 +35,7 @@ services:
       - GOOGLE_PLACES_API_KEY=${GOOGLE_PLACES_API_KEY}
       - GBP_ACCOUNT_ID=${GBP_ACCOUNT_ID}
       - GBP_LOCATION_ID=${GBP_LOCATION_ID}
+      - GBP_TOKEN_B64=${GBP_TOKEN_B64}
     restart: unless-stopped
 
 volumes:

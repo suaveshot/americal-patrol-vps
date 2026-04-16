@@ -88,6 +88,16 @@ if [ ! -f /app/patrol_automation/token.json ] && [ -n "$GOOGLE_TOKEN_B64" ]; the
     echo "$GOOGLE_TOKEN_B64" | base64 -d > /app/patrol_automation/token.json
     echo "Decoded token.json"
 fi
+# GBP token (same credentials, separate token for GBP API scopes)
+mkdir -p /app/gbp_automation
+if [ ! -f /app/gbp_automation/gbp_token.json ] && [ -n "$GBP_TOKEN_B64" ]; then
+    echo "$GBP_TOKEN_B64" | base64 -d > /app/gbp_automation/gbp_token.json
+    echo "Decoded gbp_token.json"
+fi
+# Symlink credentials.json to gbp_automation (reuses same OAuth app)
+if [ -f /app/patrol_automation/credentials.json ] && [ ! -f /app/gbp_automation/credentials.json ]; then
+    ln -sf /app/patrol_automation/credentials.json /app/gbp_automation/credentials.json
+fi
 if [ ! -f /app/patrol_automation/credentials.json ] && [ -n "$GOOGLE_CREDS_B64" ]; then
     echo "$GOOGLE_CREDS_B64" | base64 -d > /app/patrol_automation/credentials.json
     echo "Decoded credentials.json"

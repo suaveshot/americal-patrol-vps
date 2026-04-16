@@ -65,8 +65,8 @@
     "gmail_account": "americalpatrol@gmail.com",
     "ga4_property_id": "",
     "gsc_site_url": "",
-    "gbp_account_id": "",
-    "gbp_location_id": "",
+    "gbp_account_id": "accounts/101786633128272656091",
+    "gbp_location_id": "locations/11321240058339293330",
     "google_ads_customer_id": "",
     "google_ads_login_customer_id": ""
   },
@@ -95,8 +95,8 @@
       "sender_email_env": "WATCHDOG_EMAIL_FROM"
     },
     "gbp": {
-      "account_id": "",
-      "location_id": "",
+      "account_id": "accounts/101786633128272656091",
+      "location_id": "locations/11321240058339293330",
       "token_path": "gbp_automation/gbp_token.json"
     }
   },
