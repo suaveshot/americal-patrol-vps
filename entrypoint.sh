@@ -1,6 +1,66 @@
 #!/bin/bash
 
-mkdir -p /app/data /app/pipeline_events /app/data/call_intelligence/recordings
+mkdir -p /app/data /app/data/call_intelligence/recordings
+
+# ── Persist state files to Docker volume ────────────────────────────
+# /app/ is rebuilt from git on every deploy. /app/data/ is a Docker volume
+# that survives rebuilds. For each state file/dir we:
+#   1. Create the target dir in the volume
+#   2. Seed from the image copy on first deploy (if volume copy doesn't exist)
+#   3. Remove the image copy and symlink to the volume copy
+# This way Python code writes to the same paths but data lands in the volume.
+
+persist_file() {
+    local src="$1"   # path in image, e.g. /app/sales_pipeline/pipeline_state.json
+    local dst="$2"   # path in volume, e.g. /app/data/sales_pipeline/pipeline_state.json
+    mkdir -p "$(dirname "$dst")"
+    # Seed: if volume copy doesn't exist but image has one, copy it over
+    if [ ! -f "$dst" ] && [ -f "$src" ] && [ ! -L "$src" ]; then
+        cp "$src" "$dst"
+        echo "  Seeded $dst from image"
+    fi
+    # Symlink: remove image copy (or stale symlink) and point to volume
+    rm -f "$src"
+    ln -sf "$dst" "$src"
+}
+
+persist_dir() {
+    local src="$1"   # dir in image, e.g. /app/sales_pipeline/learning
+    local dst="$2"   # dir in volume, e.g. /app/data/sales_pipeline/learning
+    mkdir -p "$dst"
+    # Seed: if volume dir is empty but image has files, copy them over
+    if [ -d "$src" ] && [ ! -L "$src" ] && [ "$(ls -A "$src" 2>/dev/null)" ]; then
+        cp -rn "$src"/* "$dst"/ 2>/dev/null
+        echo "  Seeded $dst from image"
+    fi
+    # Symlink: remove image dir and point to volume
+    rm -rf "$src"
+    ln -sf "$dst" "$src"
+}
+
+echo "Persisting state files to volume..."
+
+# Sales Pipeline
+persist_file /app/sales_pipeline/pipeline_state.json    /app/data/sales_pipeline/pipeline_state.json
+persist_file /app/sales_pipeline/pipeline_drafts.json   /app/data/sales_pipeline/pipeline_drafts.json
+persist_file /app/sales_pipeline/call_transcripts.json  /app/data/sales_pipeline/call_transcripts.json
+persist_file /app/sales_pipeline/automation.log          /app/data/sales_pipeline/automation.log
+persist_dir  /app/sales_pipeline/learning               /app/data/sales_pipeline/learning
+
+# Watchdog
+persist_file /app/watchdog/health_status.json  /app/data/watchdog/health_status.json
+persist_file /app/watchdog/digest_state.json   /app/data/watchdog/digest_state.json
+
+# Email Assistant learning (main state already in /app/data/)
+persist_dir /app/email_assistant/learning  /app/data/email_assistant/learning
+
+# Pipeline events (cross-pipeline event bus)
+persist_dir /app/pipeline_events  /app/data/pipeline_events
+
+# Call Intelligence config (rarely written, but save_config() exists)
+persist_file /app/call_intelligence/config.json  /app/data/call_intelligence/config.json
+
+echo "State persistence ready."
 
 # Decode OAuth tokens from environment variables (first run only)
 if [ ! -f /app/patrol_automation/token.json ] && [ -n "$GOOGLE_TOKEN_B64" ]; then
