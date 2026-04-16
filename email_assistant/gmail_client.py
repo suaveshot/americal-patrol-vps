@@ -30,7 +30,7 @@ def fetch_unread_emails(service, hours=2):
     Deduplication is handled by processed_ids in state, not by read status.
     """
     query = (
-        f"newer_than:{hours}h "
+        f"in:inbox newer_than:{hours}h "
         "-category:promotions -category:social "
         "-category:updates -category:forums"
     )
@@ -68,6 +68,7 @@ def _parse_message(msg):
     labels = msg.get("labelIds", [])
 
     body = _extract_text_body(msg["payload"])
+    attachments = _extract_attachment_info(msg["payload"])
 
     return {
         "id": msg["id"],
@@ -79,6 +80,7 @@ def _parse_message(msg):
         "message_id": headers.get("message-id", ""),
         "body": body,
         "labels": labels,
+        "attachments": attachments,
     }
 
 
@@ -116,6 +118,34 @@ def _flatten_parts(payload):
     else:
         parts.append(payload)
     return parts
+
+
+def _extract_attachment_info(payload):
+    """Extract attachment metadata (name, type, size) without downloading content."""
+    attachments = []
+    parts = _flatten_parts(payload)
+    for part in parts:
+        filename = part.get("filename")
+        if not filename:
+            continue
+        body = part.get("body", {})
+        size_bytes = body.get("size", 0)
+        mime_type = part.get("mimeType", "unknown")
+
+        # Format size human-readable
+        if size_bytes >= 1_048_576:
+            size_str = f"{size_bytes / 1_048_576:.1f} MB"
+        elif size_bytes >= 1024:
+            size_str = f"{size_bytes / 1024:.0f} KB"
+        else:
+            size_str = f"{size_bytes} B"
+
+        attachments.append({
+            "name": filename,
+            "type": mime_type,
+            "size": size_str,
+        })
+    return attachments
 
 
 # ── Create reply draft ───────────────────────────────────────────────────────

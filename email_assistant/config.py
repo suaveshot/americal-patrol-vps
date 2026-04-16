@@ -20,13 +20,23 @@ SAM_EMAIL   = "salarcon@americalpatrol.com"
 
 # ── Classifier settings ─────────────────────────────────────────────────────
 CONFIDENCE_THRESHOLD = 0.85
-SEARCH_WINDOW_HOURS  = 4
+SEARCH_WINDOW_HOURS  = 1     # Check last hour (runs every 5 min, deduped by processed_ids)
 CLAUDE_MODEL         = "claude-sonnet-4-6"
 CLAUDE_MAX_TOKENS    = 1500
 
 # -- Two-tier confidence thresholds -----------------------------------------
 CONFIDENCE_THRESHOLD_KNOWN   = 0.70   # Known client domains -- draft more
 CONFIDENCE_THRESHOLD_UNKNOWN = 0.85   # New/unknown senders -- stay cautious
+
+# -- Proactive check-in settings -------------------------------------------
+CHECKIN_INACTIVE_DAYS    = 30    # Flag clients with no contact in this many days
+CHECKIN_MAX_DRAFTS       = 3     # Max check-in drafts to create per run
+
+# -- Weekly report settings ------------------------------------------------
+WEEKLY_REPORT_DAY        = 0     # Monday (0=Mon, 6=Sun)
+
+# -- Sentiment alert threshold ---------------------------------------------
+SENTIMENT_ALERT_THRESHOLD = -0.3  # Alert if rolling avg drops below this
 
 # -- Escalation aging thresholds (hours) ------------------------------------
 AGING_HOURS_BUSINESS   = 4     # Business hours: remind after 4h
@@ -90,6 +100,16 @@ NOISE_SUBJECT_PATTERNS = [
     "weekly digest",
     "daily summary",
     "delivery notification",
+    # Internal pipeline notifications
+    "guard compliance",
+    "guard card expires",
+    "credential expiry",
+    "credential renewal",
+    "officers need attention",
+    "compliance report",
+    "[test]",
+    "watchdog",
+    "pipeline health",
 ]
 
 NOISE_GMAIL_LABELS = [
@@ -148,6 +168,10 @@ def is_client_email(email_data):
     for pattern in NOISE_SENDER_PATTERNS:
         if pattern in sender:
             return False, False
+
+    # Reject: self-sent (pipeline notifications sent FROM this account)
+    if LARRY_EMAIL.lower() in sender:
+        return False, False
 
     # Reject: internal domains
     sender_domain = sender.split("@")[-1].rstrip(">").strip()

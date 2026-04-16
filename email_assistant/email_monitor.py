@@ -28,6 +28,9 @@ from email_assistant.config import (
     SIGNATURE,
     SAM_EMAIL,
     URGENCY_PATTERN,
+    CHECKIN_INACTIVE_DAYS,
+    CHECKIN_MAX_DRAFTS,
+    SENTIMENT_ALERT_THRESHOLD,
     is_client_email,
 )
 from email_assistant.gmail_client import (
@@ -51,6 +54,7 @@ from email_assistant.feedback_parser import parse_sam_response
 from email_assistant.digest import (
     check_escalation_aging,
     send_daily_digest,
+    send_weekly_report,
 )
 from email_assistant.learning_tracker import (
     record_draft,
@@ -60,6 +64,8 @@ from email_assistant.learning_tracker import (
 from email_assistant.client_tracker import (
     record_interaction,
     get_client_context,
+    get_inactive_clients,
+    get_sentiment_trend,
 )
 
 # Event bus for cross-pipeline integration
@@ -189,9 +195,47 @@ def process_feedback(service, state):
         state["stats"]["total_feedback_processed"] = state["stats"].get("total_feedback_processed", 0) + 1
 
 
+# -- Priority scoring --------------------------------------------------------
+def _score_email_priority(email, is_known_client, is_urgent):
+    """
+    Score an email for processing priority. Higher = process first.
+    Factors: urgency, known client, days since last contact, sentiment trend.
+    """
+    score = 0
+
+    if is_urgent:
+        score += 100
+    if is_known_client:
+        score += 50
+
+    # Boost clients we haven't heard from in a while (re-engagement signal)
+    sender = (email.get("from") or "").lower()
+    domain = sender.split("@")[-1].rstrip(">").strip()
+    from email_assistant.client_tracker import load_clients
+    clients = load_clients()
+    key = domain if domain not in ("gmail.com", "yahoo.com", "hotmail.com", "outlook.com") else sender
+    entry = clients.get(key)
+    if entry and entry.get("last_contact"):
+        try:
+            last = datetime.fromisoformat(entry["last_contact"])
+            days_silent = (datetime.now() - last).days
+            if days_silent > 14:
+                score += min(days_silent, 60)  # Cap at 60 bonus
+        except (ValueError, TypeError):
+            pass
+
+    # Boost if declining sentiment (needs extra attention)
+    if entry:
+        avg_sent, trend = get_sentiment_trend(key)
+        if trend == "declining":
+            score += 30
+
+    return score
+
+
 # -- Phase 2: Process new incoming emails -------------------------------------
 def process_new_emails(service, state):
-    """Fetch and classify new emails."""
+    """Fetch, prioritize, and classify new emails."""
     try:
         emails = fetch_unread_emails(service, hours=SEARCH_WINDOW_HOURS)
     except Exception as e:
@@ -200,36 +244,60 @@ def process_new_emails(service, state):
 
     log(f"Found {len(emails)} unread email(s) in last {SEARCH_WINDOW_HOURS}h")
 
-    drafted = 0
-    escalated = 0
+    # Pre-filter and score for priority processing
+    actionable = []
     skipped = 0
 
     for email in emails:
         email_id = email["id"]
-
         if email_id in state.get("processed_ids", {}):
             continue
 
-        sender = email.get("from", "unknown")
-        subject = email.get("subject", "(no subject)")
-        log(f"Processing: {subject} (from: {sender})")
-
-        # Filter noise (returns tuple)
         passes_filter, is_known_client = is_client_email(email)
         if not passes_filter:
-            log(f"  -> Filtered out (noise)")
+            log(f"  Filtered out (noise): {email.get('subject', '?')}")
             state["processed_ids"][email_id] = datetime.now().isoformat()
             state["stats"]["total_skipped"] += 1
             skipped += 1
             continue
 
-        # Detect urgency
+        subject = email.get("subject", "(no subject)")
         is_urgent = bool(
             URGENCY_PATTERN.search(subject) or
             URGENCY_PATTERN.search(email.get("body", "")[:500])
         )
+
+        priority = _score_email_priority(email, is_known_client, is_urgent)
+        actionable.append((priority, email, is_known_client, is_urgent))
+
+    # Sort by priority (highest first)
+    actionable.sort(key=lambda x: -x[0])
+
+    if actionable:
+        log(f"Priority queue: {len(actionable)} email(s) to process")
+
+    drafted = 0
+    escalated = 0
+    skip_count = 0
+
+    for priority, email, is_known_client, is_urgent in actionable:
+        email_id = email["id"]
+        sender = email.get("from", "unknown")
+        subject = email.get("subject", "(no subject)")
+        receive_time = datetime.now()
+
+        log(f"Processing [P{priority}]: {subject} (from: {sender})")
+
         if is_urgent:
             log(f"  -> URGENT email detected")
+
+        # Note attachments
+        attachments = email.get("attachments", [])
+        if attachments:
+            att_summary = ", ".join(
+                f"{a['name']} ({a['type']}, {a['size']})" for a in attachments
+            )
+            log(f"  -> Attachments: {att_summary}")
 
         # Fetch thread context
         thread_context = fetch_thread_messages(service, email["thread_id"])
@@ -249,12 +317,20 @@ def process_new_emails(service, state):
         confidence = result.get("confidence", 0)
         category = result.get("category", "unknown")
         reasoning = result.get("reasoning", "")
+        sentiment = result.get("sentiment")
 
-        log(f"  -> Action: {action} | Confidence: {confidence:.2f} | Category: {category}")
+        log(f"  -> Action: {action} | Confidence: {confidence:.2f} | Category: {category} | Sentiment: {sentiment}")
         log(f"  -> Reasoning: {reasoning}")
 
-        # Record client interaction
-        record_interaction(email, category, action)
+        # Compute response time (time from email fetch to draft creation)
+        response_time_sec = (datetime.now() - receive_time).total_seconds()
+
+        # Record client interaction with sentiment and response time
+        record_interaction(
+            email, category, action,
+            sentiment=sentiment,
+            response_time_sec=response_time_sec,
+        )
 
         # Publish lead inquiries to event bus
         if publish_event and category in ("service_inquiry", "new_lead", "quote_request"):
@@ -315,21 +391,22 @@ def process_new_emails(service, state):
         else:
             skip_reason = result.get("skip_reason", "no reason")
             log(f"  -> Skipped (reason: {skip_reason})")
-            skipped += 1
+            skip_count += 1
             state["stats"]["total_skipped"] += 1
 
         # Mark processed
         state["processed_ids"][email_id] = datetime.now().isoformat()
         state["stats"]["total_processed"] += 1
 
-    log(f"New emails: Drafted: {drafted} | Escalated: {escalated} | Skipped: {skipped}")
+    log(f"New emails: Drafted: {drafted} | Escalated: {escalated} | Skipped: {skipped + skip_count}")
 
 
 # -- Phase 3: Housekeeping ---------------------------------------------------
 def run_housekeeping(service, state):
-    """Aging reminders, digest, edit learning, escalation pruning."""
+    """Aging reminders, digest, edit learning, escalation pruning, check-ins, weekly report."""
     check_escalation_aging(service, state, send_escalation_email, log)
     send_daily_digest(service, state, send_html_email, log)
+    send_weekly_report(service, state, send_html_email, log)
     check_for_edits(service, state, log)
 
     learning_dir = Path(__file__).resolve().parent / "learning"
@@ -338,6 +415,84 @@ def run_housekeeping(service, state):
         update_style_guide(log)
 
     prune_old_escalations(state)
+
+    # Proactive check-in drafts for inactive clients
+    try:
+        _generate_checkin_drafts(service, state)
+    except Exception as e:
+        log(f"ERROR generating check-in drafts: {e}")
+
+
+# -- Proactive check-in drafts -----------------------------------------------
+def _generate_checkin_drafts(service, state):
+    """Create check-in draft emails for clients with no recent contact."""
+    inactive = get_inactive_clients(days_threshold=CHECKIN_INACTIVE_DAYS)
+    if not inactive:
+        return
+
+    # Only run once per day
+    last_checkin = state.get("checkin_last_run", "")
+    if last_checkin:
+        try:
+            if datetime.fromisoformat(last_checkin).date() == datetime.now().date():
+                return
+        except ValueError:
+            pass
+
+    log(f"Found {len(inactive)} inactive client(s) (>{CHECKIN_INACTIVE_DAYS} days)")
+    created = 0
+
+    for key, entry in inactive[:CHECKIN_MAX_DRAFTS]:
+        last_contact = entry.get("last_contact", "")[:10]
+        last_subject = entry.get("last_subject", "")
+        contact_count = entry.get("contact_count", 0)
+
+        # Build a simple check-in email
+        # Use the key as a rough display name (domain or email)
+        display = key.split("@")[0] if "@" in key else key.replace(".com", "").title()
+
+        checkin_body = (
+            f"Hi,\n\n"
+            f"Just checking in to make sure everything is going well with your "
+            f"security patrol coverage. We haven't heard from you in a little while "
+            f"and wanted to make sure all is good on your end.\n\n"
+            f"If there's anything we can do to improve our service or if you have "
+            f"any questions, please don't hesitate to reach out.\n\n"
+            f"Looking forward to hearing from you."
+        )
+
+        # Create as a draft (not in any thread -- new conversation)
+        try:
+            import base64
+            from email.mime.text import MIMEText as _MIMEText
+
+            full_body = f"{checkin_body}\n\n{SIGNATURE}"
+            msg = _MIMEText(full_body, "plain")
+            # Use key as the To address if it looks like an email, otherwise skip
+            if "@" in key:
+                to_addr = key
+            else:
+                # Domain key -- we can't send to a domain, skip
+                log(f"  Skipping check-in for {key} (no specific email on file)")
+                continue
+
+            msg["To"] = to_addr
+            msg["Subject"] = "Checking In -- Americal Patrol"
+            raw = base64.urlsafe_b64encode(msg.as_bytes()).decode("utf-8")
+
+            draft = service.users().drafts().create(
+                userId="me",
+                body={"message": {"raw": raw}},
+            ).execute()
+            draft_id = draft.get("id", "?")
+            log(f"  Check-in draft created for {key} (last contact: {last_contact}, ID: {draft_id})")
+            created += 1
+        except Exception as e:
+            log(f"  ERROR creating check-in draft for {key}: {e}")
+
+    state["checkin_last_run"] = datetime.now().isoformat()
+    if created:
+        log(f"Created {created} proactive check-in draft(s)")
 
 
 # -- Escalation body builder -------------------------------------------------
@@ -352,16 +507,26 @@ def _build_escalation_body(email, result):
         f"From: {email.get('from', 'unknown')}",
         f"Subject: {email.get('subject', '(no subject)')}",
         f"Date: {email.get('date', 'unknown')}",
+    ]
+
+    # Note attachments if present
+    attachments = email.get("attachments", [])
+    if attachments:
+        att_list = ", ".join(f"{a['name']} ({a['type']}, {a['size']})" for a in attachments)
+        lines.append(f"Attachments ({len(attachments)}): {att_list}")
+
+    lines.extend([
         "",
         email.get("body", "")[:2000],
         "",
         "--- MY ANALYSIS ---",
         f"Category: {result.get('category', 'unknown')}",
         f"Confidence: {result.get('confidence', 0):.0%}",
+        f"Sentiment: {result.get('sentiment', 'N/A')}",
         "",
         result.get("escalation_summary", "(no summary)"),
         "",
-    ]
+    ])
 
     draft_body = result.get("draft_body", "").strip()
     if draft_body:
