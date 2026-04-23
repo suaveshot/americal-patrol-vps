@@ -28,7 +28,7 @@ from sales_pipeline.config import LOG_FILE, DRAFTS_FILE
 from sales_pipeline.templates.signature import wrap_email_body
 from sales_pipeline.templates.unsubscribe import wrap_email_with_unsubscribe
 import tenant_context as tc
-from providers import get_crm
+from sales_pipeline.ghl_client import GHLClient
 
 # Event bus for cross-pipeline integration
 try:
@@ -57,7 +57,7 @@ def run_daily():
     from sales_pipeline.digest import send_digest
 
     config.validate_config()
-    ghl = get_crm()
+    ghl = GHLClient()
 
     log.info("=== Sales Pipeline Daily Run ===")
 
@@ -153,7 +153,7 @@ def run_daily():
         from sales_pipeline.state import load_state, save_state, add_contact, mark_drafted
 
         state = load_state()
-        contacts = ghl.list_contacts(limit=10000)
+        contacts = ghl.get_contacts()
         threshold = config.THRESHOLD_DAYS()
         cap = config.DAILY_CAP()
         cold_leads = get_cold_leads(contacts, threshold_days=threshold, state=state, daily_cap=cap)
@@ -240,7 +240,7 @@ def run_generate():
     from sales_pipeline.digest import send_digest
 
     config.validate_config()
-    ghl = get_crm()
+    ghl = GHLClient()
 
     log.info("=== Cold Outreach Draft Generation ===")
 
@@ -248,7 +248,7 @@ def run_generate():
 
     # Fetch all contacts from CRM
     log.info("Fetching contacts from CRM...")
-    contacts = ghl.list_contacts(limit=10000)
+    contacts = ghl.get_contacts()
     log.info("Fetched %d contacts total", len(contacts))
 
     # Filter cold leads
@@ -314,7 +314,7 @@ def run_generate():
 
 def run_send():
     """Send approved drafts from pipeline_drafts.json."""
-    from providers.crm.ghl import GHLAPIError
+    from sales_pipeline.ghl_client import GHLAPIError
     from sales_pipeline.state import load_state, save_state, mark_outreached
 
     config.validate_config()
@@ -347,7 +347,7 @@ def run_send():
         )
         return
 
-    ghl = get_crm()
+    ghl = GHLClient()
     state = load_state()
     sent_count = 0
     error_count = 0
@@ -458,7 +458,7 @@ def run_proposal(input_file: str):
     inp = EstimateInput(**resolved)
     log.info("Creating estimate for contact %s...", inp.contact_id)
 
-    ghl = get_crm()
+    ghl = GHLClient()
     result = create_and_send_estimate(ghl, inp)
     log.info("Estimate %s created ($%.2f)", result["estimate_id"], result["total"])
 
@@ -623,7 +623,7 @@ def run_won(contact_id: str, reason: str = ""):
     from sales_pipeline.state import load_state, save_state, mark_won, get_contact
 
     config.validate_config()
-    ghl = get_crm()
+    ghl = GHLClient()
 
     state = load_state()
     entry = get_contact(state, contact_id)
@@ -730,7 +730,7 @@ def run_lost(contact_id: str, reason: str = ""):
     from sales_pipeline.state import load_state, save_state, mark_lost, get_contact
 
     config.validate_config()
-    ghl = get_crm()
+    ghl = GHLClient()
 
     state = load_state()
     entry = get_contact(state, contact_id)
