@@ -225,6 +225,32 @@ def run_daily():
         except Exception as e:
             log.warning("Event bus publish failed: %s", e)
 
+    # Report health to watchdog. Without this the watchdog can only infer
+    # status from log-tail regex, which missed Kyle's per-contact
+    # AttributeErrors for 10 days because they didn't hit the ERROR pattern.
+    try:
+        from shared_utils.health_reporter import report_status
+        errors = summary.get("errors", [])
+        status = "error" if errors else "ok"
+        detail = (
+            f"{len(summary.get('sent', []))} sent, "
+            f"{len(summary.get('replied', []))} replied, "
+            f"{len(summary.get('nurture_sent', []))} nurture, "
+            f"{len(summary.get('cold_drafts_generated', []))} cold drafts, "
+            f"{len(errors)} errors"
+        )
+        report_status("sales_pipeline", status, detail, metrics={
+            "follow_ups_sent": len(summary.get("sent", [])),
+            "replies_detected": len(summary.get("replied", [])),
+            "nurture_sent": len(summary.get("nurture_sent", [])),
+            "cold_drafts_generated": len(summary.get("cold_drafts_generated", [])),
+            "completed": len(summary.get("completed", [])),
+            "errors": len(errors),
+            "error_samples": [str(e)[:200] for e in errors[:5]],
+        })
+    except Exception as e:
+        log.warning("health_reporter call failed: %s", e)
+
     log.info("=== Daily run complete ===")
 
 

@@ -497,21 +497,55 @@ def run_health_checks():
             status = "ok"
 
         prev = health.get(pid, {})
-        health[pid] = {
-            "status":      status,
-            "detail":      error_ln or (alerts[0] if alerts else ""),
-            "last_log_ts": last_ts.isoformat() if last_ts else prev.get("last_log_ts"),
-            "last_checked": now.isoformat(),
-            "fixes":       fixes,
-            "alerts":      alerts,
-        }
 
-        note = f"status={status}"
-        if last_ts:
-            note += f" last_run={last_ts.strftime('%m/%d %H:%M')}"
-        if fixes:
-            note += f" fixes_applied={len(fixes)}"
-        log.info(f"[{pid}] {note}")
+        # If the pipeline self-reported via report_status() since the last
+        # watchdog tick, trust that over log-tail inference. report_status
+        # entries have a `last_run` timestamp and a `metrics` dict; log-based
+        # entries have `last_log_ts` + `last_checked` instead. Without this
+        # preference, the watchdog would overwrite fresh `status=error` from
+        # a pipeline with a stale log-grepped `status=ok` — the gap that
+        # hid Kyle's broken post-proposal follow-ups for 10 days.
+        self_reported = False
+        prev_last_run_dt = None
+        if "metrics" in prev and prev.get("last_run"):
+            try:
+                prev_last_run_dt = datetime.fromisoformat(prev["last_run"])
+                self_reported = True
+            except (TypeError, ValueError):
+                pass
+
+        if self_reported:
+            merged_alerts = list(prev.get("alerts", [])) + alerts
+            merged_fixes  = list(prev.get("fixes",  [])) + fixes
+            health[pid] = {
+                **prev,
+                "last_checked": now.isoformat(),
+                "alerts": merged_alerts,
+                "fixes":  merged_fixes,
+            }
+            if prev.get("status") == "error":
+                issues.append((pid, "error", prev.get("detail", "pipeline reported error")))
+            note = f"status={prev.get('status')} (self-reported)"
+            if prev_last_run_dt:
+                note += f" last_run={prev_last_run_dt.strftime('%m/%d %H:%M')}"
+            if fixes:
+                note += f" fixes_applied={len(fixes)}"
+            log.info(f"[{pid}] {note}")
+        else:
+            health[pid] = {
+                "status":      status,
+                "detail":      error_ln or (alerts[0] if alerts else ""),
+                "last_log_ts": last_ts.isoformat() if last_ts else prev.get("last_log_ts"),
+                "last_checked": now.isoformat(),
+                "fixes":       fixes,
+                "alerts":      alerts,
+            }
+            note = f"status={status}"
+            if last_ts:
+                note += f" last_run={last_ts.strftime('%m/%d %H:%M')}"
+            if fixes:
+                note += f" fixes_applied={len(fixes)}"
+            log.info(f"[{pid}] {note}")
 
     _save_health(health)
     return {"health": health, "issues": issues}
