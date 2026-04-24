@@ -429,7 +429,7 @@ def _check_active_conversation(ghl_client, contact_id: str, since_iso: str = Non
     for msg in messages:
         if msg.get("direction") != "inbound":
             continue
-        body = (msg.get("body") or "").lower()
+        body = str(msg.get("body") or "").lower()
         if any(phrase in body for phrase in not_interested_phrases):
             return {
                 "active": False,
@@ -611,7 +611,7 @@ def _classify_reply(ghl_client, contact_id: str, since_iso: str) -> dict:
 
     # Use the most recent inbound message for classification
     latest = max(inbound_messages, key=lambda m: m.get("timestamp", ""))
-    body = (latest.get("body") or "").lower().strip()
+    body = str(latest.get("body") or "").lower().strip()
 
     # Hot signals — ready to move forward
     hot_phrases = [
@@ -672,7 +672,7 @@ def _detect_lead_channel(ghl_client, contact_id: str) -> str | None:
             if msg.get("direction") == "inbound":
                 inbound.append({
                     "timestamp": msg.get("dateAdded", ""),
-                    "type": (msg.get("type") or "").lower(),
+                    "type": str(msg.get("type") or "").lower(),
                 })
 
     if not inbound:
