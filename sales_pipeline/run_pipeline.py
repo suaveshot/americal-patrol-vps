@@ -561,10 +561,10 @@ def _run_win_loss_analysis(ghl, contact_id: str, outcome: str, reason: str = "")
     timeline = ""
     for msg in messages:
         direction = "→ SENT" if msg.get("direction") == "outbound" else "← RECEIVED"
-        msg_type = msg.get("type", "").upper()
-        timestamp = msg.get("timestamp", "")[:19]
-        subject = msg.get("subject", "")
-        body = msg.get("body", "")[:500]
+        msg_type = str(msg.get("type", "") or "").upper()
+        timestamp = str(msg.get("timestamp", "") or "")[:19]
+        subject = str(msg.get("subject", "") or "")
+        body = str(msg.get("body", "") or "")[:500]
         timeline += f"\n[{timestamp}] {direction} ({msg_type})"
         if subject:
             timeline += f" Subject: {subject}"
