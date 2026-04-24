@@ -56,161 +56,18 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # ── Pipeline registry ────────────────────────────────────────────────────────
+# VPS-resident pipelines only. PC-only pipelines (patrol, Harbor Lights, etc.)
+# are NOT listed here — they're monitored by the PC watchdog on Sam's machine.
+# Entries with log_file=None rely entirely on report_status() self-reporting.
 # interval_hours: how long between expected runs before marking "overdue"
 # schedule_days:  0=Mon … 6=Sun, None=always-on
 PIPELINES = [
-    {
-        "id":             "patrol",
-        "name":           "Morning Reports",
-        "log_file":       BASE / "patrol_automation/automation.log",
-        "interval_hours": 36,
-        "schedule_days":  list(range(7)),
-        "token_files":    [BASE / "patrol_automation/token.json"],
-        "temp_files":     [],
-        "excel_files":    [],
-    },
-    {
-        "id":             "seo",
-        "name":           "SEO Analysis",
-        "log_file":       BASE / "seo_automation/automation.log",
-        "interval_hours": 192,
-        "schedule_days":  [0],
-        "token_files":    [BASE / "seo_automation/seo_token.json"],
-        "temp_files":     [],
-        "excel_files":    [],
-    },
-    {
-        "id":             "blog",
-        "name":           "Blog Post",
-        "log_file":       BASE / "blog_post_automation/automation.log",
-        "interval_hours": 192,
-        "schedule_days":  [0],
-        "token_files":    [],
-        "temp_files":     [],
-        "excel_files":    [],
-    },
-    {
-        "id":             "social",
-        "name":           "Social Media + GBP",
-        "log_file":       BASE / "social_media_automation/automation.log",
-        "interval_hours": 96,
-        "schedule_days":  [1, 3, 5],
-        "token_files":    [
-            BASE / "social_media_automation/social_drive_token.json",
-            BASE / "gbp_automation/gbp_token.json",
-        ],
-        "temp_files":     [],
-        "excel_files":    [],
-    },
-    {
-        "id":             "gbp_standalone",
-        "name":           "GBP Standalone",
-        "log_file":       BASE / "gbp_automation/automation.log",
-        "interval_hours": 192,
-        "schedule_days":  [0],
-        "token_files":    [BASE / "gbp_automation/gbp_token.json"],
-        "temp_files":     [],
-        "excel_files":    [],
-    },
-    {
-        "id":             "ads",
-        "name":           "Google Ads",
-        "log_file":       BASE / "google_ads_automation/automation.log",
-        "interval_hours": 192,
-        "schedule_days":  [0],
-        "token_files":    [],
-        "temp_files":     [],
-        "excel_files":    [],
-        "first_scheduled": None,  # Not yet scheduled
-    },
-    {
-        "id":             "harbor_lights",
-        "name":           "Harbor Lights",
-        "log_file":       BASE / "Harbor Lights/harbor_lights.log",
-        "interval_hours": 36,
-        "schedule_days":  list(range(7)),
-        "token_files":    [],
-        "temp_files":     [Path(tempfile.gettempdir()) / "hl_temp.xlsx"],
-        "excel_files":    [BASE / "Harbor Lights/Harbor Lights Guest Parking UPDATED.xlsx"],
-    },
-    {
-        "id":             "voice",
-        "name":           "Voice Agent",
-        "log_file":       BASE / "voice_agent/automation.log",
-        "interval_hours": 48,
-        "schedule_days":  None,   # always-on via Vapi + n8n
-        "token_files":    [],
-        "temp_files":     [],
-        "excel_files":    [],
-    },
     {
         "id":             "sales_pipeline",
         "name":           "Sales Pipeline",
         "log_file":       BASE / "sales_pipeline/automation.log",
         "interval_hours": 96,
-        "schedule_days":  [0, 1, 2, 3, 4],  # Mon-Fri
-        "token_files":    [],
-        "temp_files":     [],
-        "excel_files":    [],
-    },
-    {
-        "id":             "weekly_update",
-        "name":           "Weekly Business Update",
-        "log_file":       BASE / "weekly_update/automation.log",
-        "interval_hours": 192,
-        "schedule_days":  [4],  # Friday only
-        "token_files":    [],
-        "temp_files":     [],
-        "excel_files":    [],
-    },
-    {
-        "id":             "reviews",
-        "name":           "Review Engine",
-        "log_file":       BASE / "review_engine/automation.log",
-        "interval_hours": 2400,  # Quarterly (~100 days)
-        "schedule_days":  [0],   # 1st Monday of quarter
-        "token_files":    [],
-        "temp_files":     [],
-        "excel_files":    [],
-        "first_scheduled": datetime(2026, 4, 1, 10, 0),  # Next quarterly: Apr 1
-    },
-    {
-        "id":             "qbr",
-        "name":           "QBR Generator",
-        "log_file":       BASE / "qbr_generator/automation.log",
-        "interval_hours": 2400,  # Quarterly (~100 days)
-        "schedule_days":  [0],   # 1st Monday of quarter
-        "token_files":    [],
-        "temp_files":     [],
-        "excel_files":    [],
-        "first_scheduled": datetime(2026, 4, 1, 10, 0),  # Next quarterly: Apr 1
-    },
-    {
-        "id":             "guard_compliance",
-        "name":           "Guard Compliance",
-        "log_file":       BASE / "guard_compliance/automation.log",
-        "interval_hours": 36,
-        "schedule_days":  list(range(7)),   # Daily
-        "token_files":    [],
-        "temp_files":     [],
-        "excel_files":    [],
-    },
-    {
-        "id":             "email_assistant",
-        "name":           "Email Assistant",
-        "log_file":       BASE / "email_assistant/automation.log",
-        "interval_hours": 4,
-        "schedule_days":  list(range(7)),   # Hourly, 24/7
-        "token_files":    [],
-        "temp_files":     [],
-        "excel_files":    [],
-    },
-    {
-        "id":             "incident_trends",
-        "name":           "Incident Trends",
-        "log_file":       BASE / "incident_trends/automation.log",
-        "interval_hours": 192,
-        "schedule_days":  [0],   # Monday analysis
+        "schedule_days":  [0, 1, 2, 3, 4],  # Mon-Fri 8 AM PT (--daily) + hourly
         "token_files":    [],
         "temp_files":     [],
         "excel_files":    [],
@@ -219,8 +76,68 @@ PIPELINES = [
         "id":             "transcribe_calls",
         "name":           "Call Transcription",
         "log_file":       BASE / "sales_pipeline/automation.log",
-        "interval_hours": 2,     # Every 15 min, but allow 2h grace
-        "schedule_days":  list(range(7)),   # Daily
+        "interval_hours": 2,               # Every 15 min with grace
+        "schedule_days":  list(range(7)),
+        "token_files":    [],
+        "temp_files":     [],
+        "excel_files":    [],
+    },
+    {
+        "id":             "email_assistant",
+        "name":           "Email Assistant",
+        "log_file":       BASE / "email_assistant/automation.log",
+        "interval_hours": 4,               # Every 5 min with grace
+        "schedule_days":  list(range(7)),
+        "token_files":    [],
+        "temp_files":     [],
+        "excel_files":    [],
+    },
+    {
+        "id":             "call_intelligence",
+        "name":           "Call Intelligence",
+        "log_file":       None,            # self-reports via report_status only
+        "interval_hours": 3,               # Hourly ingestion + daily sync
+        "schedule_days":  list(range(7)),
+        "token_files":    [],
+        "temp_files":     [],
+        "excel_files":    [],
+    },
+    {
+        "id":             "payment_guard",
+        "name":           "Payment Guard",
+        "log_file":       None,
+        "interval_hours": 36,              # Daily 9:05 AM PT
+        "schedule_days":  list(range(7)),
+        "token_files":    [],
+        "temp_files":     [],
+        "excel_files":    [],
+    },
+    {
+        "id":             "usage_tracker",
+        "name":           "Usage Tracker",
+        "log_file":       None,
+        "interval_hours": 36,              # Daily 11 PM PT
+        "schedule_days":  list(range(7)),
+        "token_files":    [],
+        "temp_files":     [],
+        "excel_files":    [],
+    },
+    {
+        "id":             "win_back",
+        "name":           "Win-Back",
+        "log_file":       None,
+        "interval_hours": 200,             # Weekly Mondays 10 AM PT
+        "schedule_days":  [0],
+        "token_files":    [],
+        "temp_files":     [],
+        "excel_files":    [],
+    },
+    {
+        "id":             "reviews",
+        "name":           "Review Engine",
+        "log_file":       BASE / "review_engine/automation.log",
+        "interval_hours": 36,              # Daily --respond (monthly --competitors)
+        "schedule_days":  list(range(7)),
         "token_files":    [],
         "temp_files":     [],
         "excel_files":    [],
@@ -405,6 +322,72 @@ def _token_looks_expired(token_file):
         return True   # corrupt file = effectively broken
 
 
+# ── SLA plugins ──────────────────────────────────────────────────────────────
+# Per-pipeline semantic invariants. Each function takes (now) and returns a
+# list of human-readable issue strings. When non-empty, the pipeline's status
+# is forced to "error" regardless of log/self-report — because the domain
+# state is wrong even if the process exited cleanly. This is the layer that
+# would have caught Kyle's bug: run_pipeline.py exited 0 every hour with
+# touches_sent=0 stuck forever on a post-proposal contact.
+
+def _check_sales_pipeline_sla(now):
+    """Flag post-proposal contacts whose next touch is overdue by more than
+    the grace window. Reads sales_pipeline/pipeline_state.json directly.
+    """
+    GRACE_DAYS = 2
+    issues = []
+    state_file = BASE / "sales_pipeline" / "pipeline_state.json"
+    if not state_file.exists():
+        return issues
+    try:
+        sys.path.insert(0, str(BASE))
+        from sales_pipeline.state import TOUCH_SCHEDULE, MAX_TOUCHES
+    except ImportError:
+        return issues
+    try:
+        with open(state_file, encoding="utf-8") as f:
+            state = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return issues
+    for cid, entry in state.get("contacts", {}).items():
+        if entry.get("phase") != "post_proposal":
+            continue
+        if entry.get("replied") or entry.get("completed"):
+            continue
+        if entry.get("stage") == "unsubscribed":
+            continue
+        touches_sent = entry.get("touches_sent", 0)
+        if touches_sent >= MAX_TOUCHES:
+            continue
+        proposal_sent_at = entry.get("proposal_sent_at")
+        if not proposal_sent_at:
+            continue
+        try:
+            sent_dt = datetime.fromisoformat(
+                proposal_sent_at.replace("Z", "+00:00")
+            ).replace(tzinfo=None)
+        except (TypeError, ValueError):
+            continue
+        next_touch = touches_sent + 1
+        required_days = TOUCH_SCHEDULE.get(next_touch)
+        if required_days is None:
+            continue
+        days_since = (now - sent_dt).days
+        if days_since > required_days + GRACE_DAYS:
+            name = entry.get("first_name") or entry.get("organization") or cid[:12]
+            issues.append(
+                f"Stuck post-proposal: {name} — {days_since}d since proposal, "
+                f"touch {next_touch} due at day {required_days} "
+                f"({days_since - required_days}d late)"
+            )
+    return issues
+
+
+SLA_CHECKS = {
+    "sales_pipeline": _check_sales_pipeline_sla,
+}
+
+
 # ── Core health check loop ───────────────────────────────────────────────────
 
 def run_health_checks():
@@ -435,6 +418,19 @@ def run_health_checks():
         fixes += _fix_stale_temp_files(p)
         if pid == "harbor_lights":
             fixes += _fix_stale_processed_log()
+
+        # ── SLA plugin check ──────────────────────────────────────────────
+        # Semantic invariants that override both log and self-reported status.
+        sla_issues = []
+        sla_fn = SLA_CHECKS.get(pid)
+        if sla_fn:
+            try:
+                sla_issues = sla_fn(now)
+            except Exception as e:
+                log.warning(f"[{pid}] SLA check failed: {e}")
+        for msg in sla_issues:
+            alerts.append(msg)
+            issues.append((pid, "error", msg))
 
         # ── Log analysis ──────────────────────────────────────────────────
         lines    = _read_log_tail(p["log_file"])
@@ -481,9 +477,10 @@ def run_health_checks():
             alerts.append(lock_msg)
 
         # ── Determine overall status ──────────────────────────────────────
-        if error_ln:
+        if sla_issues or error_ln:
             status = "error"
-            issues.append((pid, "error", error_ln))
+            if error_ln:
+                issues.append((pid, "error", error_ln))
         elif overdue:
             status = "overdue"
             issues.append((pid, "warning", alerts[0] if alerts else "Overdue"))
@@ -517,15 +514,21 @@ def run_health_checks():
         if self_reported:
             merged_alerts = list(prev.get("alerts", [])) + alerts
             merged_fixes  = list(prev.get("fixes",  [])) + fixes
-            health[pid] = {
-                **prev,
+            # SLA issues override self-reported ok — the process may have
+            # completed cleanly but domain state is wrong (e.g. stuck contacts).
+            overrides = {
                 "last_checked": now.isoformat(),
                 "alerts": merged_alerts,
                 "fixes":  merged_fixes,
             }
-            if prev.get("status") == "error":
+            if sla_issues:
+                overrides["status"] = "error"
+                overrides["detail"] = sla_issues[0]
+            health[pid] = {**prev, **overrides}
+            if prev.get("status") == "error" and not sla_issues:
                 issues.append((pid, "error", prev.get("detail", "pipeline reported error")))
-            note = f"status={prev.get('status')} (self-reported)"
+            effective_status = overrides.get("status", prev.get("status"))
+            note = f"status={effective_status} (self-reported)"
             if prev_last_run_dt:
                 note += f" last_run={prev_last_run_dt.strftime('%m/%d %H:%M')}"
             if fixes:
