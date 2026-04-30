@@ -126,6 +126,12 @@ PIPELINES: dict[str, dict] = {
         "state": DATA_DIR / "guard_compliance" / "compliance_state.json",
         "health_keys": ("guard_compliance",),
     },
+    "qbr_generator": {
+        "name": "QBR Generator",
+        "log": ["ap-qbr.log"],
+        "state": DATA_DIR / "qbr_generator" / "qbr_state.json",
+        "health_keys": ("qbr_generator", "qbr"),
+    },
 }
 
 

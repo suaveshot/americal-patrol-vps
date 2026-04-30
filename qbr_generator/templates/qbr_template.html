@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+  @page {
+    size: letter;
+    margin: 0.75in;
+    margin-bottom: 1in;
+  }
+  body {
+    font-family: Helvetica, Arial, sans-serif;
+    font-size: 11pt;
+    color: #333333;
+    line-height: 1.5;
+  }
+  .header-table {
+    width: 100%;
+    border-bottom: 3px solid {{primary_color}};
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+  }
+  .header-table td {
+    vertical-align: top;
+    border: none;
+    padding: 0;
+  }
+  .header-left h1 {
+    margin: 0;
+    font-size: 20pt;
+    color: {{primary_color}};
+  }
+  .header-left h2 {
+    margin: 5px 0 0 0;
+    font-size: 12pt;
+    color: #666666;
+    font-weight: normal;
+  }
+  .header-right {
+    text-align: right;
+    color: #666666;
+    font-size: 10pt;
+  }
+  .logo {
+    height: 55px;
+    margin-bottom: 5px;
+  }
+  .section-title {
+    color: {{primary_color}};
+    font-size: 14pt;
+    border-bottom: 2px solid {{accent_color}};
+    padding-bottom: 5px;
+    margin-top: 25px;
+    margin-bottom: 12px;
+  }
+  .summary-box {
+    background-color: {{light_bg}};
+    border-left: 4px solid {{primary_color}};
+    padding: 12px 16px;
+    margin: 15px 0;
+    font-size: 11pt;
+  }
+  .metrics-table {
+    width: 100%;
+    margin: 15px 0;
+  }
+  .metrics-table td {
+    border: 1px solid #dddddd;
+    border-radius: 4px;
+    padding: 10px 14px;
+    text-align: center;
+    background-color: {{light_bg}};
+    width: 25%;
+  }
+  .metric-value {
+    font-size: 22pt;
+    font-weight: bold;
+    color: {{primary_color}};
+    display: block;
+    margin-bottom: 2px;
+  }
+  .metric-label {
+    font-size: 8pt;
+    color: #666666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .delta-up {
+    color: #c0392b;
+    font-size: 9pt;
+  }
+  .delta-down {
+    color: #27ae60;
+    font-size: 9pt;
+  }
+  .delta-neutral {
+    color: #666666;
+    font-size: 9pt;
+  }
+  table.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+  }
+  table.data-table th {
+    background-color: {{primary_color}};
+    color: white;
+    padding: 8px 12px;
+    text-align: left;
+    font-size: 10pt;
+  }
+  table.data-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #eeeeee;
+    font-size: 10pt;
+  }
+  .bar-chart-table {
+    width: 100%;
+    margin: 10px 0;
+  }
+  .bar-chart-table td {
+    padding: 3px 0;
+    border: none;
+    font-size: 9pt;
+  }
+  .bar-label-cell {
+    width: 80px;
+    color: #666666;
+    text-align: right;
+    padding-right: 8px !important;
+  }
+  .bar-track-cell {
+    padding: 3px 0 !important;
+  }
+  .bar-fill {
+    height: 16px;
+    background-color: {{accent_color}};
+    display: block;
+  }
+  .bar-value-cell {
+    width: 30px;
+    text-align: right;
+    color: #333333;
+    padding-left: 5px !important;
+  }
+  .recommendation-list {
+    margin: 10px 0;
+    padding-left: 20px;
+  }
+  .recommendation-list li {
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .outlook-box {
+    background-color: {{primary_color}};
+    color: white;
+    padding: 15px 20px;
+    margin-top: 20px;
+  }
+  .outlook-box p {
+    margin: 0;
+    color: white;
+  }
+  .footer {
+    margin-top: 30px;
+    padding-top: 15px;
+    border-top: 1px solid #dddddd;
+    font-size: 9pt;
+    color: #999999;
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<table class="header-table">
+<tr>
+  <td class="header-left" style="width:65%;">
+    <h1>Quarterly Business Review</h1>
+    <h2>{{property_names}}</h2>
+  </td>
+  <td class="header-right" style="width:35%;">
+    {{logo_img}}<br>
+    {{quarter_label}}<br>
+    Prepared: {{report_date}}
+  </td>
+</tr>
+</table>
+
+<!-- Executive Summary -->
+<h3 class="section-title">Executive Summary</h3>
+<div class="summary-box">
+  {{executive_summary}}
+</div>
+
+<!-- Key Metrics -->
+<h3 class="section-title">Patrol Coverage</h3>
+<table class="metrics-table">
+<tr>
+  <td>
+    <span class="metric-value">{{total_patrol_days}}</span>
+    <span class="metric-label">Patrol Nights</span>
+  </td>
+  <td>
+    <span class="metric-value">{{incident_free_pct}}%</span>
+    <span class="metric-label">Incident-Free</span>
+  </td>
+  <td>
+    <span class="metric-value">{{total_incidents}}</span>
+    <span class="metric-label">Incidents</span><br>
+    {{incident_delta_html}}
+  </td>
+  <td>
+    <span class="metric-value">{{longest_clean_streak}}</span>
+    <span class="metric-label">Best Clean Streak (Days)</span>
+  </td>
+</tr>
+</table>
+
+<!-- Incident Summary by Day of Week -->
+{{dow_section}}
+
+<!-- Incident Timeline -->
+{{timeline_section}}
+
+<!-- Recommendations -->
+<h3 class="section-title">Recommendations</h3>
+<ul class="recommendation-list">
+  {{recommendations_html}}
+</ul>
+
+<!-- Outlook -->
+<h3 class="section-title">Next Quarter Outlook</h3>
+<div class="outlook-box">
+  <p>{{outlook}}</p>
+</div>
+
+<div class="footer">
+  {{company_name}} &bull; (805) 844-9433 &bull; www.americalpatrol.com<br>
+  This report is confidential and prepared exclusively for the recipient.
+</div>
+
+</body>
+</html>
