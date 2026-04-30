@@ -271,12 +271,14 @@
       "accounts": [
         {
           "id": "211",
-          "name": "LAX Logistics Firewatch",
-          "address": "5353-5343 W Imperial Hwy, Los Angeles, CA 90045"
+          "name": "LAX Gateway",
+          "address": "11099 S La Cienega Blvd, Los Angeles, CA 90045"
         }
       ],
       "keywords": [
         "lax",
+        "lax gateway",
+        "gateway",
         "lax logistics",
         "lax fire watch",
         "firewatch",
@@ -304,6 +306,29 @@
         "sepulveda",
         "T-17"
       ]
+    },
+    {
+      "group_id": "brea_marketplace",
+      "recipients": [
+        "nathangrant@regencycenters.com"
+      ],
+      "accounts": [
+        {
+          "id": "T-05",
+          "name": "Brea Marketplace",
+          "address": "705-985 E. Birch St., Brea, CA 92821"
+        }
+      ],
+      "keywords": [
+        "brea marketplace",
+        "brea",
+        "regency centers",
+        "regency",
+        "birch st",
+        "e birch",
+        "705-985",
+        "T-05"
+      ]
     }
   ],
   "_no_email_accounts": [
@@ -311,11 +336,6 @@
       "id": "207",
       "name": "United Pacific Bank",
       "note": "Phone only: 626-965-6230"
-    },
-    {
-      "id": "T-05",
-      "name": "LAX Logistics (old entry — now active as group lax_firewatch)",
-      "note": "Moved to active groups. Kari Hughes: khughes@prologis.com"
     }
   ]
 }
