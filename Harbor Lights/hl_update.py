@@ -20,8 +20,17 @@ from datetime import datetime
 from itertools import groupby
 
 import pdfplumber
-import openpyxl
-from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+
+# Storage backend — Google Sheets via sheets_client. The Excel file at
+# Harbor Lights Guest Parking UPDATED.xlsx is now legacy (kept for
+# parking_audit's optional Excel-fallback read path; new writes go to Sheets).
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sheets_client import (  # noqa: E402
+    open_sheet,
+    get_or_create_year_sheet,
+    append_data_rows,
+    refresh_dashboard,
+)
 
 # ── Logging ─────────────────────────────────────────────────────────────────
 BASE          = str(Path(__file__).resolve().parent.parent)
@@ -47,12 +56,8 @@ PROCESSED_LOG = os.path.join(BASE, "Harbor Lights", "processed_pdfs.json")
 TEMP_FILE     = os.path.join(tempfile.gettempdir(), "hl_temp.xlsx")
 
 
-def _check_excel_lock():
-    """Return True if Excel has the file open (lock file present)."""
-    excel_dir  = os.path.dirname(EXCEL_FILE)
-    excel_name = os.path.basename(EXCEL_FILE)
-    lock_file  = os.path.join(excel_dir, "~$" + excel_name)
-    return os.path.exists(lock_file)
+# Excel lock check removed: Sheets has no lock-file concept. The legacy
+# `~$<filename>.xlsx` lock check that lived here is no longer applicable.
 
 
 # ── Step 1: Find new PDFs ────────────────────────────────────────────────────
@@ -325,289 +330,54 @@ def parse_guest_pdfs(guest_pdfs):
     return parking_data
 
 
-# ── Step 4–6: Excel update ────────────────────────────────────────────────────
-THIN        = Side(style="thin")
-THIN_BORDER = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
-CENTER      = Alignment(horizontal="center", vertical="center")
+# ── Step 4–6: Google Sheets update ──────────────────────────────────────────
+# Storage cut over from openpyxl/xlsx → Google Sheets in 2026-04. All formatting,
+# year-tab management, and dashboard recompute lives in sheets_client.py now.
 
-STATUS_STYLE = {
-    "TOWED":     ("C00000", "FFFFFF", True),
-    "WARNING":   ("FF6600", "FFFFFF", True),
-    "HANDICAP":  ("2E75B6", "FFFFFF", True),
-    "NO PERMIT": ("FFD966", "000000", False),
-}
+def update_sheets(all_rows):
+    """Append new rows to the current year's worksheet and recompute the
+    Dashboard tab. Returns True on success.
 
+    `all_rows` is a list of (datetime, plate, permit_or_status) tuples,
+    sorted ascending by date. The first row of each date-group carries the
+    date; subsequent rows in the same group set date=None as a continuation.
+    """
+    spreadsheet = open_sheet()
+    current_year = datetime.now().year
+    ws = get_or_create_year_sheet(spreadsheet, current_year)
 
-def _font(bold=False, color="000000"):
-    return Font(name="Aptos Narrow", size=10, bold=bold, color=color)
+    # Mark continuation rows (same-date-as-previous) by stripping the date
+    # from all but the first row of each date group — matches the original
+    # Excel write behavior so the visual reads as grouped blocks.
+    flagged: list[tuple] = []
+    last_date = None
+    for date_obj, plate, permit in all_rows:
+        d = date_obj if date_obj != last_date else None
+        flagged.append((d, plate, permit))
+        last_date = date_obj
 
-
-def _fill(hex6):
-    return PatternFill(fill_type="solid", fgColor="FF" + hex6)
-
-
-def write_data_row(ws, row_num, date_val, plate, permit, row_fill_hex):
-    ca = ws.cell(row=row_num, column=1, value=date_val)
-    ca.font, ca.fill = _font(bold=(date_val is not None)), _fill(row_fill_hex)
-    ca.alignment, ca.border = CENTER, THIN_BORDER
-    if date_val is not None:
-        ca.number_format = "d-mmm-yy"
-
-    cb = ws.cell(row=row_num, column=2, value=plate)
-    cb.font, cb.fill = _font(), _fill(row_fill_hex)
-    cb.alignment, cb.border = CENTER, THIN_BORDER
-
-    permit_val = permit
-    if isinstance(permit, str) and permit.upper() not in STATUS_STYLE:
-        digits = re.sub(r"[^0-9]", "", permit)
-        permit_val = int(digits) if digits else (permit if permit.strip() else None)
-    cc = ws.cell(row=row_num, column=3, value=permit_val)
-    sk = str(permit_val).upper() if permit_val is not None else ""
-    if sk in STATUS_STYLE:
-        bg, fg, bold = STATUS_STYLE[sk]
-        cc.font, cc.fill = _font(bold=bold, color=fg), _fill(bg)
-    else:
-        cc.font, cc.fill = _font(), _fill(row_fill_hex)
-    cc.alignment, cc.border = CENTER, THIN_BORDER
-
-
-def update_excel(all_rows, parking_data, towed_pairs, warning_pairs):
-    """Append rows to Excel and refresh Summary Dashboard. Returns True on success."""
-    # Check for Excel lock before attempting to open
-    if _check_excel_lock():
-        raise OSError(
-            f"Excel file is open in another process. "
-            f"Close '{os.path.basename(EXCEL_FILE)}' in Excel and re-run."
-        )
-
-    wb = openpyxl.load_workbook(EXCEL_FILE)
-
-    # Determine target sheet — use year sheet if present (new format), else legacy sheet
-    current_year = str(datetime.now().year)
-    if current_year in wb.sheetnames:
-        ws = wb[current_year]
-    elif "Harbor Lights HOA" in wb.sheetnames:
-        ws = wb["Harbor Lights HOA"]
-    else:
-        # Create a new year sheet if neither exists
-        ws = wb.create_sheet(current_year)
-        log.warning(f"Created new year sheet '{current_year}' in Excel.")
-
-    last_fill = None
-    for r in range(ws.max_row, 0, -1):
-        cell = ws.cell(row=r, column=1)
-        if cell.value is not None:
-            last_fill = cell.fill.fgColor.rgb[-6:].upper()
-            break
-
-    current_fill      = "FFFFFF" if last_fill == "EEF2F7" else "EEF2F7"
-    current_write_row = ws.max_row + 2
-
-    first_group = True
-    for date_obj, group_iter in groupby(all_rows, key=lambda x: x[0]):
-        entries = list(group_iter)
-        if not first_group:
-            current_write_row += 1
-            current_fill = "FFFFFF" if current_fill == "EEF2F7" else "EEF2F7"
-        first_entry = True
-        for _, plate, permit in entries:
-            write_data_row(ws, current_write_row,
-                           date_obj if first_entry else None,
-                           plate, permit, current_fill)
-            first_entry, current_write_row = False, current_write_row + 1
-        first_group = False
-
-    # Refresh Summary Dashboard
-    _refresh_summary(wb, ws)
-
-    wb.save(TEMP_FILE)
-    shutil.copy2(TEMP_FILE, EXCEL_FILE)
-    log.info(f"Excel saved -> {EXCEL_FILE}")
+    append_data_rows(ws, flagged)
+    refresh_dashboard(spreadsheet)
+    log.info(f"Sheets updated -> tab '{current_year}' + Dashboard refreshed")
     return True
 
 
-def _refresh_dashboard_new(wb):
-    """Refresh KPIs and top-10 table in the new-format Dashboard sheet."""
-    dash = wb["Dashboard"]
-
-    # Collect all rows from all year sheets
-    all_rows_data = []
-    for sheet_name in wb.sheetnames:
-        if sheet_name.isdigit():
-            ws_year = wb[sheet_name]
-            current_date = None
-            for row in ws_year.iter_rows(min_row=2, values_only=True):
-                date_val, plate, status = row[0], row[1], row[2]
-                if date_val is not None:
-                    current_date = date_val if isinstance(date_val, datetime) else None
-                if plate and current_date:
-                    all_rows_data.append((current_date, str(plate), str(status) if status else ""))
-
-    if not all_rows_data:
-        return
-
-    total     = len(all_rows_data)
-    unique    = len(set(r[1] for r in all_rows_data))
-    days      = len(set(r[0].date() for r in all_rows_data if isinstance(r[0], datetime)))
-    daily_avg = round(total / days, 1) if days else 0
-    towed     = sum(1 for r in all_rows_data if r[2].upper() == "TOWED")
-    warnings  = sum(1 for r in all_rows_data if r[2].upper() == "WARNING")
-
-    # KPI values are in row 7, cols B(2)–G(7)
-    kpi_vals = [total, unique, days, daily_avg, towed, warnings]
-    for col, val in enumerate(kpi_vals, start=2):
-        dash.cell(row=7, column=col).value = val
-
-    # Update generated timestamp (row 3 title banner)
-    dash["B3"].value = f"Generated {datetime.now().strftime('%B %d, %Y')}"
-
-    # Update top-10 table: scan from row 1 to find "TOP 10" section header
-    plate_counter   = Counter(r[1] for r in all_rows_data)
-    plate_last_seen = {}
-    for date_obj, plate, _ in all_rows_data:
-        if isinstance(date_obj, datetime):
-            if plate not in plate_last_seen or date_obj > plate_last_seen[plate]:
-                plate_last_seen[plate] = date_obj
-
-    # Find top-10 header row
-    top10_data_row = None
-    for r in range(1, dash.max_row + 1):
-        val = str(dash.cell(row=r, column=2).value or "")
-        if "TOP 10" in val.upper() or "RANK" in val.upper():
-            top10_data_row = r + 1
-            break
-
-    if top10_data_row:
-        for i, (plate, cnt) in enumerate(plate_counter.most_common(10)):
-            r = top10_data_row + i + 1  # +1 for the header row within section
-            dash.cell(row=r, column=2).value = i + 1
-            dash.cell(row=r, column=3).value = plate
-            dash.cell(row=r, column=4).value = cnt
-            last = plate_last_seen.get(plate)
-            dash.cell(row=r, column=5).value = last.strftime("%m/%d/%Y") if last else ""
+# Status keys (no formatting — sheets_client owns formatting now). Kept
+# at module level for back-compat in case anything imports them.
+STATUS_STYLE_KEYS = ("TOWED", "WARNING", "EXPIRED", "OUTSIDER", "HANDICAP", "NO PERMIT")
 
 
-def _refresh_summary(wb, ws):
-    # Support both new format (Dashboard) and legacy (Summary Dashboard)
-    if "Summary Dashboard" in wb.sheetnames:
-        ws2 = wb["Summary Dashboard"]
-    elif "Dashboard" in wb.sheetnames:
-        # New format: update KPI row and top-10 table in Dashboard sheet
-        _refresh_dashboard_new(wb)
-        return
-    else:
-        log.warning("No dashboard sheet found — skipping summary refresh.")
-        return
+def _LEGACY_OPENPYXL_REMOVED():
+    """All openpyxl-based write/dashboard helpers were removed during the
+    Sheets migration. Left as a marker for grep purposes."""
+    pass
 
-    total_vehicles, incidents = 0, 0
-    unique_plates, days_covered = set(), set()
-    monthly = defaultdict(lambda: {
-        "total": 0, "permit": 0, "handicap": 0,
-        "warning": 0, "no_permit": 0, "towed": 0, "other": 0
-    })
-    permit_cats     = Counter()
-    plate_counter   = Counter()
-    plate_last_seen = {}
-    current_date    = None
 
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        date_val, plate, permit = row[0], row[1], row[2]
-        if date_val is not None and isinstance(date_val, datetime):
-            current_date = date_val
-        if plate is None or current_date is None:
-            continue
+# Legacy openpyxl write/dashboard helpers were here. Removed during the
+# 2026-04 Sheets migration. See sheets_client.py for the replacement, and
+# git history (or rebuild_excel.py / verify_rebuild.py) if you need the
+# original openpyxl logic for a one-shot Excel re-export.
 
-        total_vehicles += 1
-        plate_str = str(plate).upper().strip()
-        unique_plates.add(plate_str)
-        days_covered.add(current_date.date())
-        plate_counter[plate_str] += 1
-        if plate_str not in plate_last_seen or current_date > plate_last_seen[plate_str]:
-            plate_last_seen[plate_str] = current_date
-
-        mkey  = current_date.strftime("%b %Y")
-        monthly[mkey]["total"] += 1
-        p_str = str(permit).upper().strip() if permit is not None else ""
-
-        if p_str == "WARNING":
-            monthly[mkey]["warning"]  += 1; permit_cats["warning"]  += 1; incidents += 1
-        elif p_str == "TOWED":
-            monthly[mkey]["towed"]    += 1; permit_cats["towed"]    += 1; incidents += 1
-        elif p_str == "HANDICAP":
-            monthly[mkey]["handicap"] += 1; permit_cats["handicap"] += 1
-        elif p_str == "NO PERMIT":
-            monthly[mkey]["no_permit"]+= 1; permit_cats["no_permit"]+= 1
-        elif permit is not None and p_str not in ("", "NONE"):
-            monthly[mkey]["permit"]   += 1; permit_cats["permit"]   += 1
-        else:
-            monthly[mkey]["other"]    += 1; permit_cats["other"]    += 1
-
-    ws2["B7"] = total_vehicles
-    ws2["C7"] = len(unique_plates)
-    ws2["E7"] = len(days_covered)
-    ws2["G7"] = incidents
-
-    month_row_map, total_row = {}, None
-    for r in range(12, ws2.max_row + 1):
-        val = ws2.cell(row=r, column=2).value
-        if val == "TOTAL":
-            total_row = r; break
-        if isinstance(val, str) and val.strip():
-            month_row_map[val.strip()] = r
-
-    months_with_data = sorted(
-        [m for m in monthly if monthly[m]["total"] > 0],
-        key=lambda m: datetime.strptime(m, "%b %Y"),
-    )
-    for mkey in months_with_data:
-        d = monthly[mkey]
-        if mkey in month_row_map:
-            r = month_row_map[mkey]
-        else:
-            insert_at = total_row if total_row else ws2.max_row + 1
-            ws2.insert_rows(insert_at)
-            r = insert_at
-            if total_row: total_row += 1
-            ws2.cell(row=r, column=2).value = mkey
-            month_row_map[mkey] = r
-        for col, key in enumerate(["total","permit","handicap","warning","no_permit","towed"], start=3):
-            ws2.cell(row=r, column=col).value = d[key]
-
-    if total_row:
-        ws2.cell(row=total_row, column=3).value = total_vehicles
-        for col, key in enumerate(["permit","handicap","warning","no_permit","towed"], start=4):
-            ws2.cell(row=total_row, column=col).value = permit_cats[key]
-
-    permit_total = total_vehicles or 1
-    for r in range(43, ws2.max_row + 1):
-        label = ws2.cell(row=r, column=2).value
-        if not isinstance(label, str): continue
-        lbl, count = label.strip().lower(), None
-        if "valid"      in lbl: count = permit_cats["permit"]
-        elif "handicap" in lbl: count = permit_cats["handicap"]
-        elif "warning"  in lbl: count = permit_cats["warning"]
-        elif "no permit"in lbl: count = permit_cats["no_permit"]
-        elif "towed"    in lbl: count = permit_cats["towed"]
-        elif "other"    in lbl or "blank" in lbl: count = permit_cats["other"]
-        if count is not None:
-            ws2.cell(row=r, column=3).value = count
-            ws2.cell(row=r, column=4).value = count / permit_total
-
-    for i, (plate, cnt) in enumerate(plate_counter.most_common(10)):
-        r = 66 + i
-        ws2.cell(row=r, column=2).value = i + 1
-        ws2.cell(row=r, column=3).value = plate
-        ws2.cell(row=r, column=4).value = cnt
-        ws2.cell(row=r, column=5).value = plate_last_seen.get(plate)
-
-    for r in range(ws2.max_row, max(1, ws2.max_row - 5), -1):
-        cell = ws2.cell(row=r, column=2)
-        if isinstance(cell.value, str) and "Generated" in cell.value:
-            cell.value = (
-                f"Generated {datetime.now().strftime('%B %d, %Y')}"
-                "  |  Americal Patrol Security Services  |  Harbor Lights HOA"
-            )
-            break
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -707,8 +477,8 @@ def main():
         warning_count = sum(1 for r in all_rows if r[2] == "WARNING")
         log.info(f"Rows to insert: {len(all_rows)}  (TOWED={towed_count}, WARNING={warning_count})")
 
-        # Write Excel
-        update_excel(all_rows, parking_data, towed_pairs, warning_pairs)
+        # Write Sheets (Excel cut over to Google Sheets 2026-04 — see sheets_client.py)
+        update_sheets(all_rows)
 
         # Update processed log
         newly_processed = sorted(set(list(processed) + [bn for bn, _ in (guest_pdfs + incident_pdfs)]))
@@ -731,7 +501,7 @@ def main():
             )
 
     except OSError as e:
-        # Excel lock or file permission error
+        # File-system issues: PDF read failure, processed-log write failure, etc.
         log.error(f"ERROR: File access failed: {e}")
         if report_status:
             report_status("harbor_lights", "error", str(e))

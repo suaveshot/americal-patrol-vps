@@ -21,15 +21,20 @@ from email.mime.multipart import MIMEMultipart
 from pathlib import Path
 from collections import defaultdict
 
-import openpyxl
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 
+# Storage backend — Google Sheets via sheets_client (cut over from openpyxl
+# 2026-04 so the pipeline + audit can run on the VPS without Sam's PC syncing
+# the local Excel file).
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent))
+from sheets_client import open_sheet, read_all_records  # noqa: E402
+
 # ── Paths ──────────────────────────────────────────────────────────────────────
 BASE        = Path(__file__).resolve().parent.parent
-EXCEL_FILE  = BASE / "Harbor Lights" / "Harbor Lights Guest Parking UPDATED.xlsx"
 PATROL_AUTH = BASE / "patrol_automation"
 TOKEN_PATH  = PATROL_AUTH / "token.json"
 LOG_PATH    = BASE / "Harbor Lights" / "parking_audit.log"
@@ -107,59 +112,35 @@ def get_gmail_service():
     return build("gmail", "v1", credentials=creds)
 
 
-# ── Read Excel ────────────────────────────────────────────────────────────────
+# ── Read from Google Sheets ──────────────────────────────────────────────────
 def read_parking_records():
     """
     Returns list of (date, plate_str, permit_str_or_None, status_str).
-    Handles the date pattern: date appears on the first row of each group;
-    subsequent rows in the same group have a None date cell.
+
+    Iterates every year-tab worksheet in the Harbor Lights spreadsheet. The
+    underlying sheets_client.read_all_records handles the same continuation-
+    row logic that the original Excel reader did (date appears only on the
+    first row of each group; subsequent rows inherit it).
 
     status_str is the raw Permit/Status column value (e.g. "82", "WARNING",
-    "TOWED", "HANDICAP", "NO PERMIT", "Guest", or None).
+    "TOWED", "HANDICAP", "NO PERMIT", "Guest", or "").
     """
-    wb = openpyxl.load_workbook(EXCEL_FILE, data_only=True)
-
-    # Support new year-based sheets ("2026") and legacy sheet name
-    current_year = str(date.today().year)
-    if current_year in wb.sheetnames:
-        ws = wb[current_year]
-    elif "Harbor Lights HOA" in wb.sheetnames:
-        ws = wb["Harbor Lights HOA"]
-    else:
-        # Fall back to first non-Dashboard sheet
-        ws = next(
-            (wb[s] for s in wb.sheetnames if s not in ("Dashboard", "Sheet1")),
-            wb.active,
-        )
+    spreadsheet = open_sheet()
+    raw = read_all_records(spreadsheet)
 
     records = []
-    current_date = None
-
-    for row in ws.iter_rows(min_row=2, values_only=True):
-        date_val = row[0]
-        plate    = row[1]
-        status   = row[2] if len(row) > 2 else None
-
-        # Advance current date when a new date cell appears
-        if date_val is not None and isinstance(date_val, datetime):
-            current_date = date_val.date()
-
-        if plate is None or current_date is None:
-            continue
-
-        plate_str = str(plate).strip().upper()
+    for d, plate, status in raw:
+        plate_str = plate.strip().upper()
         if not plate_str:
             continue
-
-        status_str = str(status).strip() if status is not None else None
-
-        # For permit tracking, extract a clean permit value from the status field.
-        # Numeric statuses are permit numbers; keyword statuses are flags.
+        status_str = status.strip() if status else None
+        # For permit tracking, the permit field is the same as status — numeric
+        # values are permit numbers, keyword values are flags. Audit logic below
+        # uses status_str for citation matching and permit_str for tracking.
         permit_str = status_str
+        records.append((d.date(), plate_str, permit_str, status_str))
 
-        records.append((current_date, plate_str, permit_str, status_str))
-
-    log.info("Loaded %d parking records from Excel.", len(records))
+    log.info("Loaded %d parking records from Google Sheets.", len(records))
     return records
 
 
