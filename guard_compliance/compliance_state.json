@@ -1,0 +1,435 @@
+{
+  "version": 1,
+  "officers": {
+    "5527563": {
+      "name": "Sam Alarcon",
+      "email": "salarcon@americalpatrol.com",
+      "phone": "+15629684474",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": null,
+        "guard_card_expiry": null,
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521152"
+    },
+    "5540029": {
+      "name": "Eduardo Pazarin",
+      "email": "eddiepazarin@gmail.com",
+      "phone": "+16266183125",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G6473162",
+        "guard_card_expiry": "2027-12-31",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G6473162 12/31/27",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521159"
+    },
+    "5569608": {
+      "name": "Abel Alvarado",
+      "email": "sabllvrd1@aol.com",
+      "phone": "+16263931468",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G1187108",
+        "guard_card_expiry": "2027-12-31",
+        "baton_number": "112957",
+        "baton_expiry": "2025-12-31",
+        "firearm_number": "235767",
+        "firearm_expiry": "2025-12-31",
+        "raw_value": "G1187108 12/31/27   Baton- 112957 12/31/25   Firearm- 235767  12/31/25",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521163"
+    },
+    "5569609": {
+      "name": "Jorge Vazquez",
+      "email": "Vazquez24jorge@gmail.com",
+      "phone": "+16266719783",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G1223656",
+        "guard_card_expiry": "2027-08-31",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": "FQ243035",
+        "firearm_expiry": "2027-08-31",
+        "raw_value": "G1223656 8/31/27   Firearm- FQ243035 8/31/27",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521165"
+    },
+    "5569610": {
+      "name": "Josue Alarcon",
+      "email": "sam_alarcon@hotmail.com",
+      "phone": "+15625193143",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G6650441",
+        "guard_card_expiry": "2026-10-31",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G6650441 10/31/26",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521167"
+    },
+    "5569613": {
+      "name": "Vicente Jimenez",
+      "email": "",
+      "phone": "+16263240152",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": null,
+        "guard_card_expiry": null,
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521169"
+    },
+    "5569634": {
+      "name": "Jorge Borrero",
+      "email": "jorgeborrero99@gmail.com",
+      "phone": "+15628050187",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G6277631",
+        "guard_card_expiry": "2026-08-31",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G6277631 8/31/26",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521171"
+    },
+    "5608626": {
+      "name": "Humberto Chong",
+      "email": "",
+      "phone": "+16267066648",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G1434673",
+        "guard_card_expiry": "2026-03-31",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G1434673 3/31/26",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521172"
+    },
+    "5676573": {
+      "name": "Jose Tovar",
+      "email": "Josetovarmata2022@gmail.com",
+      "phone": "+16262236665",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G1274146",
+        "guard_card_expiry": "2026-07-31",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G1274146 7/31/26",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521174"
+    },
+    "6278438": {
+      "name": "Roberto Alvarez",
+      "email": "ramsdeacon@gmail.com",
+      "phone": "+16577674489",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G1062169",
+        "guard_card_expiry": "2027-12-31",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G1062169 12/31/27",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521175"
+    },
+    "7274855": {
+      "name": "Walter Cifuentes",
+      "email": "cifuenteswalter1@gmail.com",
+      "phone": "+16265390527",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G6339708",
+        "guard_card_expiry": "2027-09-30",
+        "baton_number": "G1546726",
+        "baton_expiry": "2025-08-31",
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G6339708 9/30/27    Baton-G1546726  8/31/25",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521177"
+    },
+    "9034809": {
+      "name": "Donald Leary",
+      "email": "dowrong13@yahoo.com",
+      "phone": "+18056099202",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G6771882",
+        "guard_card_expiry": "2026-06-30",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G6771882 06/30/2026",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-20T06:00:05.400447"
+    },
+    "9165761": {
+      "name": "Rafael  Puga",
+      "email": "ralph.mp23@gmail.com",
+      "phone": "+18059215639",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G6668784",
+        "guard_card_expiry": "2027-02-28",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G6668784  2/28/27",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521179"
+    },
+    "9233471": {
+      "name": "Don Peterson",
+      "email": "don@americalpatrol.com",
+      "phone": "+18058449433",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": null,
+        "guard_card_expiry": null,
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "excempt",
+        "exempt": true
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521180"
+    },
+    "10485425": {
+      "name": "Javier Rodriguez",
+      "email": "gamble1389@gmail.com",
+      "phone": "+13236293574",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G6502669",
+        "guard_card_expiry": "2026-06-30",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G6502669 6/30/26",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521182"
+    },
+    "11898380": {
+      "name": "Nathaniel Herbert",
+      "email": "nathanielleeherbert@gmail.com",
+      "phone": "+18056450019",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G6846385",
+        "guard_card_expiry": "2027-06-30",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G6846385  06/30/2027",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521183"
+    },
+    "12248659": {
+      "name": "David Johnson",
+      "email": "davidjohnson.oc714@yahoo.com",
+      "phone": "+17147141407",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G1591240",
+        "guard_card_expiry": "2028-04-30",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G1591240  04/30/2028",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521185"
+    },
+    "12636457": {
+      "name": "Donald Bernard Jr.",
+      "email": "donaldleary376@yahoo.com",
+      "phone": "+18058409847",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G6771277",
+        "guard_card_expiry": "2026-06-30",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G6771277 06/30/2026",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521186"
+    },
+    "12673130": {
+      "name": "Ray Sanchez",
+      "email": "raysanchez42@gmail.com",
+      "phone": "+18052484611",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G6786011",
+        "guard_card_expiry": "2026-09-30",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G6786011 09/30/2026",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521188"
+    },
+    "12974802": {
+      "name": "Nicholas Noell",
+      "email": "nicholasynoell@gmail.com",
+      "phone": "+15622300557",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G6808684",
+        "guard_card_expiry": "2027-01-31",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": " G6808684  01/31/2027",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-23T06:00:04.029263"
+    },
+    "13502496": {
+      "name": "Marvin Jones",
+      "email": "marvinlamarjones@gmail.com",
+      "phone": "+18058168761",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": "G6871733",
+        "guard_card_expiry": "2027-10-31",
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G6871733  10/31/2027",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521189"
+    },
+    "14123850": {
+      "name": "Miguel Molina",
+      "email": "juanmmolina1738@gmail.com",
+      "phone": "+16266896478",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": null,
+        "guard_card_expiry": null,
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "Dnp",
+        "exempt": true
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-08T06:00:04.463267"
+    },
+    "15167607": {
+      "name": "Carlos Morales",
+      "email": "7206cj@gmail.com",
+      "phone": "+18056262178",
+      "status": "active",
+      "credentials": {
+        "guard_card_number": null,
+        "guard_card_expiry": null,
+        "baton_number": null,
+        "baton_expiry": null,
+        "firearm_number": null,
+        "firearm_expiry": null,
+        "raw_value": "G6451011  exp:08/31/2027",
+        "exempt": false
+      },
+      "bsis_verification": {},
+      "last_synced": "2026-04-30T06:00:05.521191"
+    }
+  },
+  "discovered_fields": [
+    "Birthday",
+    "Branch",
+    "Department",
+    "Direct manager",
+    "Employment Start Date",
+    "Employment Type",
+    "Guard Card License Number and Expiration Date",
+    "Overtime Eligibility",
+    "Pay Type",
+    "Sick leave days",
+    "Team",
+    "Title",
+    "Worker Type"
+  ],
+  "last_sync": "2026-04-30T06:00:18.179979"
+}

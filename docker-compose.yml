@@ -53,6 +53,8 @@ services:
       - GHL_AUTHOR_ID=${GHL_AUTHOR_ID}
       - GHL_BLOG_CHANNEL_ID=${GHL_BLOG_CHANNEL_ID}
       - GHL_CATEGORY_ID=${GHL_CATEGORY_ID}
+      # Guard Compliance (Connecteam custom fields = officer cert data)
+      - CONNECTEAM_API_KEY=${CONNECTEAM_API_KEY}
     restart: unless-stopped
 
 volumes:

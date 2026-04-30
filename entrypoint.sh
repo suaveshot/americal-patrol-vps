@@ -110,6 +110,11 @@ persist_file /app/blog_post_automation/blog_config.json  /app/data/blog_post_aut
 persist_file /app/weekly_update/weekly_state.json  /app/data/weekly_update/weekly_state.json
 persist_file /app/weekly_update/automation.log    /app/data/weekly_update/automation.log
 
+# Guard Compliance (officer state + DCA BSIS CSV cache — refreshed monthly)
+persist_file /app/guard_compliance/compliance_state.json  /app/data/guard_compliance/compliance_state.json
+persist_file /app/guard_compliance/automation.log         /app/data/guard_compliance/automation.log
+persist_dir  /app/guard_compliance/bsis_data              /app/data/guard_compliance/bsis_data
+
 echo "State persistence ready."
 
 # Decode OAuth tokens from environment variables (first run only)
@@ -203,6 +208,8 @@ PATH=/usr/local/bin:/usr/bin:/bin
 0 16 * * 1 root . /etc/container_env.sh && [ $(($(date +\%V | sed 's/^0*//') % 2)) -eq 0 ] && cd /app/blog_post_automation && python3 run_blog.py 2>&1 | tee -a /var/log/ap-blog.log > /proc/1/fd/1
 # Weekly Update digest (Fri 12 PM Pacific = 19:00 UTC; client-facing summary)
 0 19 * * 5 root . /etc/container_env.sh && cd /app && python3 -m weekly_update.run_weekly_update 2>&1 | tee -a /var/log/ap-weekly.log > /proc/1/fd/1
+# Guard Compliance (daily 6 AM Pacific = 13:00 UTC — guard card/cert expiry tracker)
+0 13 * * * root . /etc/container_env.sh && cd /app && python3 -m guard_compliance.run_compliance 2>&1 | tee -a /var/log/ap-guard.log > /proc/1/fd/1
 # WCAS Dashboard heartbeat (every 30 min — decoupled from per-pipeline cadences,
 # so the dashboard rings reflect current state from disk every cycle even if
 # a pipeline is idle. Mirror of the Windows-side AmericalPatrolHeartbeatPush,
