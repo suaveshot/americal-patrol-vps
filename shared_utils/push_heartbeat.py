@@ -86,6 +86,22 @@ PIPELINES: dict[str, dict] = {
         "state": DATA_DIR / "review_engine" / "review_state.json",
         "health_keys": ("reviews", "review_engine"),
     },
+    "social": {
+        "name": "Social Media",
+        "log": ["ap-social.log"],
+        "state": DATA_DIR / "social_media_automation" / "social_state.json",
+        "health_keys": ("social", "social_media"),
+    },
+    "gbp": {
+        "name": "Google Business Profile",
+        # GBP posts are emitted by social_media_automation/gbp_publisher.py
+        # (gbp_automation/CLAUDE.md — standalone run_gbp.py was deprecated
+        # 2026-04). Read from the social log so the dashboard's GBP ring
+        # reflects actual posting cadence, plus gbp_state.json for rotation.
+        "log": ["ap-social.log"],
+        "state": DATA_DIR / "gbp_automation" / "gbp_state.json",
+        "health_keys": ("gbp",),
+    },
 }
 
 

@@ -1,0 +1,13 @@
+{
+  "links": [
+    {
+      "original_url": "https://americalpatrol.com/blog/test",
+      "tracked_url": "https://americalpatrol.com/blog/test?utm_source=facebook&utm_medium=social&utm_campaign=weekly_post&utm_content=blog_share",
+      "platform": "facebook",
+      "campaign": "weekly_post",
+      "content_type": "blog_share",
+      "created_at": "2026-03-15T23:14:05.039410"
+    }
+  ],
+  "last_updated": "2026-03-15T23:14:05.039415"
+}
