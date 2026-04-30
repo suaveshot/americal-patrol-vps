@@ -98,6 +98,14 @@ persist_file /app/gbp_automation/gbp_state.json  /app/data/gbp_automation/gbp_st
 persist_file /app/seo_automation/seo_state.json  /app/data/seo_automation/seo_state.json
 persist_file /app/seo_automation/automation.log  /app/data/seo_automation/automation.log
 
+# Blog state (topic rotation index, last_run, posts_published)
+persist_file /app/blog_post_automation/blog_state.json   /app/data/blog_post_automation/blog_state.json
+persist_file /app/blog_post_automation/automation.log    /app/data/blog_post_automation/automation.log
+# blog_config.json is mutated by seo_automation/topic_updater.py (writes
+# priority_topics + keyword_intelligence). Persist so SEO updates survive
+# redeploys instead of resetting to the in-image (frozen) topics.
+persist_file /app/blog_post_automation/blog_config.json  /app/data/blog_post_automation/blog_config.json
+
 echo "State persistence ready."
 
 # Decode OAuth tokens from environment variables (first run only)
@@ -185,6 +193,10 @@ PATH=/usr/local/bin:/usr/bin:/bin
 0 14 * * 1 root . /etc/container_env.sh && cd /app/seo_automation && python3 run_seo.py 2>&1 | tee -a /var/log/ap-seo.log > /proc/1/fd/1
 # SEO daily ranking alert (10 AM Pacific = 17:00 UTC)
 0 17 * * * root . /etc/container_env.sh && cd /app/seo_automation && python3 alert_checker.py 2>&1 | tee -a /var/log/ap-seo.log > /proc/1/fd/1
+# Blog Post (every other Mon 9 AM Pacific = 16:00 UTC, gated to even ISO weeks
+# to match the original "every 2 weeks" Task Scheduler cadence — last run was
+# week 16, 2026-04-20). Toggle to weekly by removing the [ -eq 0 ] guard.
+0 16 * * 1 root . /etc/container_env.sh && [ $(($(date +\%V | sed 's/^0*//') % 2)) -eq 0 ] && cd /app/blog_post_automation && python3 run_blog.py 2>&1 | tee -a /var/log/ap-blog.log > /proc/1/fd/1
 # WCAS Dashboard heartbeat (every 30 min — decoupled from per-pipeline cadences,
 # so the dashboard rings reflect current state from disk every cycle even if
 # a pipeline is idle. Mirror of the Windows-side AmericalPatrolHeartbeatPush,

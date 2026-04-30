@@ -49,6 +49,10 @@ services:
       - CRUX_API_KEY=${CRUX_API_KEY}
       - SEO_TOKEN_B64=${SEO_TOKEN_B64}
       - SEO_INDEXING_SA_B64=${SEO_INDEXING_SA_B64}
+      # Blog Post (GHL publishing fields)
+      - GHL_AUTHOR_ID=${GHL_AUTHOR_ID}
+      - GHL_BLOG_CHANNEL_ID=${GHL_BLOG_CHANNEL_ID}
+      - GHL_CATEGORY_ID=${GHL_CATEGORY_ID}
     restart: unless-stopped
 
 volumes:
