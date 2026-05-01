@@ -1,6 +1,11 @@
 FROM python:3.12-slim
 
-RUN apt-get update && apt-get install -y --no-install-recommends cron curl && rm -rf /var/lib/apt/lists/*
+# tesseract-ocr: optional fallback for image-only Connecteam DARs (patrol_automation/ocr_fallback.py)
+# poppler-utils: PyMuPDF / pdfplumber image rendering for OCR + PDF-to-image conversions
+# fonts-dejavu: branded_pdf.py timeline rendering uses Pillow ImageFont — needs default fonts present
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        cron curl tesseract-ocr poppler-utils fonts-dejavu \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 

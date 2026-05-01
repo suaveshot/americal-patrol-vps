@@ -1,0 +1,10 @@
+{
+  "_comment_storage": "Excel cut over to Google Sheets 2026-04. excel_output kept for one-shot migration tools (rebuild_excel.py / verify_rebuild.py / migrate_excel_to_sheets.py); the live pipeline uses HL_SHEET_ID from env.",
+  "base_dir": "/app/Harbor Lights",
+  "guest_parking_pdf": "Harbor Lights HOA Guest Parking_January_01_2026_to_March_20_2026.pdf",
+  "incident_pdf": "Harbor Lights HOA Incident Report_January_05_2026_to_March_20_2026.pdf",
+  "guest_parking_output": "extracted_guest_parking.json",
+  "incidents_output": "extracted_incidents.json",
+  "excel_output": "Harbor Lights Guest Parking UPDATED.xlsx",
+  "hl_sheet_id_env": "HL_SHEET_ID"
+}

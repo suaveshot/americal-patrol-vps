@@ -39,6 +39,29 @@ services:
       # WCAS dashboard heartbeat — see shared_utils/push_heartbeat.py
       - DASHBOARD_URL=${DASHBOARD_URL}
       - HEARTBEAT_SHARED_SECRET=${HEARTBEAT_SHARED_SECRET}
+      # Social Media (Gemini for image generation, Google Drive for hosting public URLs)
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SOCIAL_DRIVE_FOLDER_ID=${SOCIAL_DRIVE_FOLDER_ID}
+      - SOCIAL_DRIVE_TOKEN_B64=${SOCIAL_DRIVE_TOKEN_B64}
+      # SEO (DataForSEO + CrUX for keyword/competitor data, Google service account for indexing)
+      - DATAFORSEO_LOGIN=${DATAFORSEO_LOGIN}
+      - DATAFORSEO_PASSWORD=${DATAFORSEO_PASSWORD}
+      - CRUX_API_KEY=${CRUX_API_KEY}
+      - SEO_TOKEN_B64=${SEO_TOKEN_B64}
+      - SEO_INDEXING_SA_B64=${SEO_INDEXING_SA_B64}
+      # Blog Post (GHL publishing fields)
+      - GHL_AUTHOR_ID=${GHL_AUTHOR_ID}
+      - GHL_BLOG_CHANNEL_ID=${GHL_BLOG_CHANNEL_ID}
+      - GHL_CATEGORY_ID=${GHL_CATEGORY_ID}
+      # Guard Compliance (Connecteam custom fields = officer cert data)
+      - CONNECTEAM_API_KEY=${CONNECTEAM_API_KEY}
+      # Patrol Automation (Morning Reports) — Connecteam API client credentials
+      # for DAR / vehicle / incident pulls (different keys from guard compliance).
+      - CONNECTEAM_CLIENT_ID=${CONNECTEAM_CLIENT_ID}
+      - CONNECTEAM_CLIENT_SECRET=${CONNECTEAM_CLIENT_SECRET}
+      # Harbor Lights — Google Sheet ID + OAuth token (cut over from Excel 2026-04).
+      - HL_SHEET_ID=${HL_SHEET_ID}
+      - SHEETS_TOKEN_B64=${SHEETS_TOKEN_B64}
     restart: unless-stopped
 
 volumes:

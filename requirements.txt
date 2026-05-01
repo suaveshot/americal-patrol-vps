@@ -9,3 +9,15 @@ python-docx
 faster-whisper
 SpeechRecognition
 pyairtable
+# Patrol Automation (morning reports) + Harbor Lights — PDF parsing, branded PDF
+# generation, OCR fallback for image-only DARs.
+pdfplumber
+PyMuPDF
+xhtml2pdf
+Pillow
+pytesseract
+# openpyxl: kept for the one-shot migrate_excel_to_sheets.py + rebuild_excel /
+# verify_rebuild diagnostic tools. The live pipeline writes Sheets only.
+openpyxl
+# gspread: Harbor Lights Google Sheets backend (sheets_client.py).
+gspread

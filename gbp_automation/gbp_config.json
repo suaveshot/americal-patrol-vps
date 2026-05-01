@@ -1,0 +1,70 @@
+{
+  "account_id": "accounts/101786633128272656091",
+  "location_id": "locations/11321240058339293330",
+  "token_path": "gbp_token.json",
+  "recipients": [
+    "don@americalpatrol.com",
+    "salarcon@americalpatrol.com"
+  ],
+  "master_nap": {
+    "business_name": "Americal Patrol, Inc.",
+    "phone": "(805) 515-3834",
+    "phone_digits": "8055153834",
+    "address_line1": "640 Mountain View",
+    "address_line2": "Unit A",
+    "city": "Oxnard",
+    "state": "CA",
+    "zip": "93030",
+    "website": "https://americalpatrol.com"
+  },
+  "directory_listings": {
+    "Yelp": "https://www.yelp.com/biz/americal-patrol-oxnard",
+    "BBB": "https://www.bbb.org/us/ca/oxnard/profile/security-guards/americal-patrol-inc-1236-92060075",
+    "Yellow Pages": "https://www.yellowpages.com/ventura-ca/security-guard-patrol-service",
+    "LinkedIn": "https://www.linkedin.com/company/americal-patrol",
+    "Facebook": "https://www.facebook.com/profile.php?id=100069705426912",
+    "Google Business Profile": "https://www.google.com/maps/place/Americal+Patrol",
+    "ZoomInfo": "https://www.zoominfo.com/c/americal-patrol-inc/346926138",
+    "Guardist": "https://guardist.co/marketplace/americal-patrol-inc/",
+    "Guards Zone": "https://guardszone.com/CA/oxnard/americal-patrol/",
+    "Yahoo Local": "https://local.yahoo.com/info-229091981-americal-patrol-inc-oxnard/",
+    "Bing Places": "",
+    "Apple Maps": "",
+    "Foursquare": "",
+    "Manta": "",
+    "Thumbtack": "",
+    "Alignable": "",
+    "ChamberOfCommerce": "",
+    "VeteranOwnedBusiness": "",
+    "NaVOBA": ""
+  },
+  "directory_listings_notes": "Empty strings = not yet claimed. Claim with exact NAP: Americal Patrol, Inc. | (805) 515-3834 | 640 Mountain View, Unit A, Oxnard, CA 93030",
+  "post_topics": [
+    {
+      "type": "company_update",
+      "subject": "veteran-owned security company Oxnard CA"
+    },
+    {
+      "type": "security_tip",
+      "subject": "commercial property security tips Ventura County"
+    },
+    {
+      "type": "local_news",
+      "subject": "Oxnard Camarillo crime prevention security patrol"
+    },
+    {
+      "type": "service_highlight",
+      "subject": "mobile patrol services Ventura County CA"
+    },
+    {
+      "type": "company_update",
+      "subject": "HOA security patrol services Camarillo Ventura County"
+    },
+    {
+      "type": "security_tip",
+      "subject": "retail loss prevention tips Ventura County CA"
+    }
+  ],
+  "priority_post_topics": [],
+  "post_cta_url": "https://americalpatrol.com/contact-us"
+}

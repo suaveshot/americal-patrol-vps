@@ -86,6 +86,69 @@ PIPELINES: dict[str, dict] = {
         "state": DATA_DIR / "review_engine" / "review_state.json",
         "health_keys": ("reviews", "review_engine"),
     },
+    "social": {
+        "name": "Social Media",
+        "log": ["ap-social.log"],
+        "state": DATA_DIR / "social_media_automation" / "social_state.json",
+        "health_keys": ("social", "social_media"),
+    },
+    "gbp": {
+        "name": "Google Business Profile",
+        # GBP posts are emitted by social_media_automation/gbp_publisher.py
+        # (gbp_automation/CLAUDE.md — standalone run_gbp.py was deprecated
+        # 2026-04). Read from the social log so the dashboard's GBP ring
+        # reflects actual posting cadence, plus gbp_state.json for rotation.
+        "log": ["ap-social.log"],
+        "state": DATA_DIR / "gbp_automation" / "gbp_state.json",
+        "health_keys": ("gbp",),
+    },
+    "seo": {
+        "name": "SEO Analysis",
+        "log": ["ap-seo.log"],
+        "state": DATA_DIR / "seo_automation" / "seo_state.json",
+        "health_keys": ("seo",),
+    },
+    "blog": {
+        "name": "Blog Post",
+        "log": ["ap-blog.log"],
+        "state": DATA_DIR / "blog_post_automation" / "blog_state.json",
+        "health_keys": ("blog",),
+    },
+    "weekly_update": {
+        "name": "Weekly Update",
+        "log": ["ap-weekly.log"],
+        "state": DATA_DIR / "weekly_update" / "weekly_state.json",
+        "health_keys": ("weekly_update", "weekly_digest"),
+    },
+    "guard_compliance": {
+        "name": "Guard Compliance",
+        "log": ["ap-guard.log"],
+        "state": DATA_DIR / "guard_compliance" / "compliance_state.json",
+        "health_keys": ("guard_compliance",),
+    },
+    "qbr_generator": {
+        "name": "QBR Generator",
+        "log": ["ap-qbr.log"],
+        "state": DATA_DIR / "qbr_generator" / "qbr_state.json",
+        "health_keys": ("qbr_generator", "qbr"),
+    },
+    # Patrol Automation (Morning Reports) — pipeline_id matches the dashboard
+    # catalog's `daily_reports` canonical id (legacy_aliases includes 'patrol').
+    # The cron line stays commented in entrypoint.sh until Sam verifies the
+    # container produces the same output as the Windows TS task — once that
+    # cron is enabled, this heartbeat will pick up /var/log/ap-patrol.log.
+    "daily_reports": {
+        "name": "Morning Reports",
+        "log": ["ap-patrol.log"],
+        "state": DATA_DIR / "patrol_automation" / "automation.log",
+        "health_keys": ("patrol", "daily_reports"),
+    },
+    "harbor_lights": {
+        "name": "Harbor Lights Parking",
+        "log": ["ap-hl.log"],
+        "state": DATA_DIR / "harbor_lights" / "processed_pdfs.json",
+        "health_keys": ("harbor_lights",),
+    },
 }
 
 
