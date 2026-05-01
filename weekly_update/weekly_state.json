@@ -1,0 +1,14 @@
+{
+  "last_run": "2026-03-27T14:25:23.180827",
+  "metrics": {
+    "estimates_sent_count": 0,
+    "estimates_total_value": 0,
+    "deals_closed_count": 0,
+    "deals_closed_value": 0,
+    "ads_spend": 0.0,
+    "ads_calls": 0,
+    "ads_cost_per_lead": 0.0,
+    "voice_total_calls": 0,
+    "voice_intake_calls": 0
+  }
+}

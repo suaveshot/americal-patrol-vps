@@ -106,6 +106,10 @@ persist_file /app/blog_post_automation/automation.log    /app/data/blog_post_aut
 # redeploys instead of resetting to the in-image (frozen) topics.
 persist_file /app/blog_post_automation/blog_config.json  /app/data/blog_post_automation/blog_config.json
 
+# Weekly Update (week-over-week deltas + last digest send)
+persist_file /app/weekly_update/weekly_state.json  /app/data/weekly_update/weekly_state.json
+persist_file /app/weekly_update/automation.log    /app/data/weekly_update/automation.log
+
 echo "State persistence ready."
 
 # Decode OAuth tokens from environment variables (first run only)
@@ -197,6 +201,8 @@ PATH=/usr/local/bin:/usr/bin:/bin
 # to match the original "every 2 weeks" Task Scheduler cadence — last run was
 # week 16, 2026-04-20). Toggle to weekly by removing the [ -eq 0 ] guard.
 0 16 * * 1 root . /etc/container_env.sh && [ $(($(date +\%V | sed 's/^0*//') % 2)) -eq 0 ] && cd /app/blog_post_automation && python3 run_blog.py 2>&1 | tee -a /var/log/ap-blog.log > /proc/1/fd/1
+# Weekly Update digest (Fri 12 PM Pacific = 19:00 UTC; client-facing summary)
+0 19 * * 5 root . /etc/container_env.sh && cd /app && python3 -m weekly_update.run_weekly_update 2>&1 | tee -a /var/log/ap-weekly.log > /proc/1/fd/1
 # WCAS Dashboard heartbeat (every 30 min — decoupled from per-pipeline cadences,
 # so the dashboard rings reflect current state from disk every cycle even if
 # a pipeline is idle. Mirror of the Windows-side AmericalPatrolHeartbeatPush,
