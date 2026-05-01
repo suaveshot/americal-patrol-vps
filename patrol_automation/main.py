@@ -15,6 +15,7 @@ from pathlib import Path
 from collections import defaultdict
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from shared_utils.event_bus import publish_event
 
 from dotenv import load_dotenv
