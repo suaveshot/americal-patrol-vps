@@ -1,0 +1,31 @@
+{
+    "connecteam_field_mappings": {
+        "guard_card_combined": "Guard Card License Number and Expiration Date"
+    },
+    "alert_thresholds_days": {
+        "first_notice": 90,
+        "reminder": 60,
+        "urgent": 30,
+        "critical": 14,
+        "expired": 0
+    },
+    "notification_recipients": {
+        "owner": "salarcon@americalpatrol.com",
+        "backup": "don@americalpatrol.com"
+    },
+    "tracked_certifications": [
+        "guard_card",
+        "baton",
+        "firearm"
+    ],
+    "schedule": {
+        "run_daily_at": "06:00",
+        "report_day": "Monday"
+    },
+    "bsis_verification": {
+        "enabled": false,
+        "refresh_day": 1,
+        "note": "DCA bulk CSV URL needs updating. Enable once data source is confirmed."
+    },
+    "test_mode": true
+}

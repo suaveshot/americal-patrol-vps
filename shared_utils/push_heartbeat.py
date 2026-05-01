@@ -120,6 +120,12 @@ PIPELINES: dict[str, dict] = {
         "state": DATA_DIR / "weekly_update" / "weekly_state.json",
         "health_keys": ("weekly_update", "weekly_digest"),
     },
+    "guard_compliance": {
+        "name": "Guard Compliance",
+        "log": ["ap-guard.log"],
+        "state": DATA_DIR / "guard_compliance" / "compliance_state.json",
+        "health_keys": ("guard_compliance",),
+    },
 }
 
 
