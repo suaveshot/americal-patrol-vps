@@ -39,6 +39,10 @@ services:
       # WCAS dashboard heartbeat — see shared_utils/push_heartbeat.py
       - DASHBOARD_URL=${DASHBOARD_URL}
       - HEARTBEAT_SHARED_SECRET=${HEARTBEAT_SHARED_SECRET}
+      # Social Media (Gemini for image generation, Google Drive for hosting public URLs)
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SOCIAL_DRIVE_FOLDER_ID=${SOCIAL_DRIVE_FOLDER_ID}
+      - SOCIAL_DRIVE_TOKEN_B64=${SOCIAL_DRIVE_TOKEN_B64}
     restart: unless-stopped
 
 volumes:

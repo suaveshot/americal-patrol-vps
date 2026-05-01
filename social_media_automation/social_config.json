@@ -1,0 +1,104 @@
+{
+  "platforms": {
+    "facebook": {
+      "enabled": true,
+      "ghl_account_id": "6637c42487b12d28aefcb144_pI579KjSOGiSQA5cvy35_102664452057999_page",
+      "max_chars": 63206
+    },
+    "instagram": {
+      "enabled": true,
+      "ghl_account_id": "69c88a4c1d05e5beafc47170_pI579KjSOGiSQA5cvy35_17841439442367409",
+      "max_chars": 2200,
+      "max_hashtags": 30
+    },
+    "linkedin": {
+      "enabled": true,
+      "ghl_account_id": "69caa3ad8927ee6c88e04823_pI579KjSOGiSQA5cvy35_113329191_page",
+      "max_chars": 3000
+    },
+    "gbp": {
+      "enabled": true,
+      "max_chars": 1500,
+      "account_id": "accounts/101786633128272656091",
+      "location_id": "locations/11321240058339293330",
+      "post_cta_url": "https://americalpatrol.com/contact-us",
+      "frequency": "weekly"
+    }
+  },
+  "posting_schedule": {
+    "days": ["Tuesday", "Thursday", "Saturday"],
+    "time": "10:00"
+  },
+  "content_rotation": {
+    "facebook": [
+      {"type": "community_safety_tip", "description": "Local safety advice for Oxnard/Ventura community"},
+      {"type": "blog_share", "description": "Share latest blog post with community angle"},
+      {"type": "local_news_commentary", "description": "Comment on local security/crime news"},
+      {"type": "company_milestone", "description": "Veteran-owned heritage, years of service, team growth"},
+      {"type": "client_appreciation", "description": "Thank you to communities we serve (anonymized)"},
+      {"type": "patrol_highlight", "description": "Spotlight on patrol services and coverage areas"}
+    ],
+    "instagram": [
+      {"type": "ai_security_scene", "description": "AI-generated professional security scene"},
+      {"type": "team_vehicle_spotlight", "description": "Team or patrol vehicle showcase"},
+      {"type": "tip_infographic", "description": "Security tip with visual design"},
+      {"type": "before_after_security", "description": "Before/after security improvement concept"},
+      {"type": "service_showcase", "description": "Specific service offering with visuals"},
+      {"type": "community_event", "description": "Local event or community involvement"}
+    ],
+    "linkedin": [
+      {"type": "industry_trend_analysis", "description": "Thought leadership on security trends"},
+      {"type": "case_study", "description": "Anonymized client success story"},
+      {"type": "crime_data_insight", "description": "Data-driven security insights from public sources"},
+      {"type": "blog_promotion", "description": "Share blog post with professional framing"},
+      {"type": "service_roi_breakdown", "description": "Business case for security services"},
+      {"type": "veteran_owned_story", "description": "Veteran entrepreneurship and mission"}
+    ],
+    "gbp": [
+      {"type": "company_update", "subject": "veteran-owned security company Oxnard CA"},
+      {"type": "security_tip", "subject": "commercial property security tips Ventura County"},
+      {"type": "local_news", "subject": "Oxnard Camarillo crime prevention security patrol"},
+      {"type": "service_highlight", "subject": "mobile patrol services Ventura County CA"},
+      {"type": "company_update", "subject": "HOA security patrol services Camarillo Ventura County"},
+      {"type": "security_tip", "subject": "retail loss prevention tips Ventura County CA"},
+      {"type": "seguridad_tip_espanol", "subject": "consejos de seguridad para propietarios en Ventura County"}
+    ]
+  },
+  "brand": {
+    "company_name": "Americal Patrol, Inc.",
+    "tagline": "Veteran-Owned Security Since 1986",
+    "website": "https://americalpatrol.com",
+    "phone": "(805) 515-3834",
+    "location": "Oxnard, CA",
+    "hashtags_base": [
+      "#SecurityPatrol", "#VenturaCounty", "#OxnardCA", "#VeteranOwned",
+      "#PropertySecurity", "#SecurityGuard", "#PatrolServices"
+    ],
+    "cities": ["Oxnard", "Ventura", "Camarillo", "Port Hueneme", "Santa Paula", "Ojai"],
+    "service_areas": ["Ventura County", "Los Angeles County", "Orange County"],
+    "cta_url": "https://americalpatrol.com/contact-us",
+    "approved_sources": [
+      "California DOJ", "FBI Crime Data Explorer", "Bureau of Labor Statistics",
+      "BSIS", "OSHA", "Ventura County Sheriff", "California Legislative Information"
+    ]
+  },
+  "image_generation": {
+    "provider": "google",
+    "model": "gemini-2.0-flash-preview-image-generation",
+    "size": "1024x1024",
+    "quality": "standard"
+  },
+  "seasonal_calendar": [
+    {"name": "National Night Out", "month": 8, "day": 1, "description": "Community safety awareness event"},
+    {"name": "Security Officer Appreciation Day", "month": 9, "day": 12, "description": "Honoring security professionals"},
+    {"name": "National First Responders Day", "month": 10, "day": 28, "description": "Recognizing first responders"},
+    {"name": "Veterans Day", "month": 11, "day": 11, "description": "Veteran-owned company heritage — big day for us"},
+    {"name": "Holiday Security Awareness", "month": 12, "day": 1, "description": "Holiday season security tips"},
+    {"name": "National Crime Prevention Month", "month": 10, "day": 1, "description": "Crime prevention awareness"},
+    {"name": "Ventura County Fair", "month": 8, "day": 2, "description": "Local community event"},
+    {"name": "California Strawberry Festival", "month": 5, "day": 17, "description": "Oxnard community event"}
+  ],
+  "gbp_priority_post_topics": [],
+  "draft_mode": true,
+  "recipients": ["don@americalpatrol.com", "salarcon@americalpatrol.com"]
+}

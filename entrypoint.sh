@@ -81,6 +81,19 @@ persist_file /app/review_engine/review_state.json      /app/data/review_engine/r
 persist_file /app/review_engine/competitor_data.json    /app/data/review_engine/competitor_data.json
 persist_file /app/review_engine/automation.log          /app/data/review_engine/automation.log
 
+# Social Media (state is per-platform rotation indexes + post history; image_library
+# is the catalog of generated/uploaded images. Persist so a redeploy doesn't reset
+# rotation back to slot 0 and re-post recent topics.)
+persist_file /app/social_media_automation/social_state.json         /app/data/social_media_automation/social_state.json
+persist_file /app/social_media_automation/image_library.json        /app/data/social_media_automation/image_library.json
+persist_file /app/social_media_automation/link_tracker.json         /app/data/social_media_automation/link_tracker.json
+persist_file /app/social_media_automation/hashtag_performance.json  /app/data/social_media_automation/hashtag_performance.json
+persist_file /app/social_media_automation/automation.log            /app/data/social_media_automation/automation.log
+persist_dir  /app/social_media_automation/media                     /app/data/social_media_automation/media
+
+# GBP rotation index (used by social pipeline's GBP publisher)
+persist_file /app/gbp_automation/gbp_state.json  /app/data/gbp_automation/gbp_state.json
+
 echo "State persistence ready."
 
 # Decode OAuth tokens from environment variables (first run only)
@@ -101,6 +114,11 @@ fi
 if [ ! -f /app/patrol_automation/credentials.json ] && [ -n "$GOOGLE_CREDS_B64" ]; then
     echo "$GOOGLE_CREDS_B64" | base64 -d > /app/patrol_automation/credentials.json
     echo "Decoded credentials.json"
+fi
+# Social Media — Drive token (separate scope: drive.file for image upload)
+if [ ! -f /app/social_media_automation/social_drive_token.json ] && [ -n "$SOCIAL_DRIVE_TOKEN_B64" ]; then
+    echo "$SOCIAL_DRIVE_TOKEN_B64" | base64 -d > /app/social_media_automation/social_drive_token.json
+    echo "Decoded social_drive_token.json"
 fi
 
 # Persist container env vars to a file cron jobs can source.
@@ -143,6 +161,12 @@ PATH=/usr/local/bin:/usr/bin:/bin
 0 16 * * * root . /etc/container_env.sh && cd /app && python3 review_engine/run_reviews.py --respond 2>&1 | tee -a /var/log/ap-reviews.log > /proc/1/fd/1
 # Review Engine - Competitor monitoring (1st of month 8 AM Pacific = 15:00 UTC)
 0 15 1 * * root . /etc/container_env.sh && cd /app && python3 review_engine/run_reviews.py --competitors 2>&1 | tee -a /var/log/ap-reviews.log > /proc/1/fd/1
+# Social Media (Tue/Thu/Sat 10 AM Pacific = 17:00 UTC; GBP weekly-gated in code)
+0 17 * * 2,4,6 root . /etc/container_env.sh && cd /app/social_media_automation && python3 run_social.py 2>&1 | tee -a /var/log/ap-social.log > /proc/1/fd/1
+# Social Media calendar preview (Sun 8 PM Pacific = 03:00 UTC Mon)
+0 3 * * 1 root . /etc/container_env.sh && cd /app/social_media_automation && python3 calendar_preview.py 2>&1 | tee -a /var/log/ap-social.log > /proc/1/fd/1
+# Social Media engagement tracker (daily 10 AM Pacific = 17:00 UTC; pulls 48h-old post stats)
+0 17 * * * root . /etc/container_env.sh && cd /app/social_media_automation && python3 engagement_tracker.py 2>&1 | tee -a /var/log/ap-social.log > /proc/1/fd/1
 # WCAS Dashboard heartbeat (every 30 min — decoupled from per-pipeline cadences,
 # so the dashboard rings reflect current state from disk every cycle even if
 # a pipeline is idle. Mirror of the Windows-side AmericalPatrolHeartbeatPush,
