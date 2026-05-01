@@ -31,6 +31,16 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from pathlib import Path
 
+# Diagnostic engine + dashboard poster are sibling modules. Import lazily-safe
+# so an import error in either never breaks the core watchdog scan.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    import diagnostic_engine
+    import dashboard_client
+except ImportError:
+    diagnostic_engine = None
+    dashboard_client = None
+
 BASE = Path(__file__).resolve().parent.parent
 
 # Load .env
@@ -388,6 +398,44 @@ SLA_CHECKS = {
 }
 
 
+# ── Diagnostic engine bridge ─────────────────────────────────────────────────
+
+# Cap on how many failures get a Claude-powered diagnosis per watchdog run.
+# Dedupe inside diagnostic_engine handles the steady state; this is a hard
+# upper bound on cost during a "everything is broken" cascade.
+DIAGNOSE_PER_RUN_CAP = 5
+_diag_count_this_run = {"n": 0}
+
+
+def _maybe_diagnose(pipeline, error_line, log_tail, state_snapshot):
+    """Call diagnostic_engine + dashboard_client when a pipeline shows an error.
+
+    Wrapped in broad try/except so the diagnostic path can never break the
+    core watchdog scan. Disabled by default (DIAGNOSTIC_ENGINE_ENABLED env var).
+    """
+    if diagnostic_engine is None or dashboard_client is None:
+        return
+    if _diag_count_this_run["n"] >= DIAGNOSE_PER_RUN_CAP:
+        log.info(f"[diagnostic] per-run cap reached ({DIAGNOSE_PER_RUN_CAP}) — skipping {pipeline['id']}")
+        return
+    try:
+        log_file = pipeline.get("log_file")
+        source_root = log_file.parent if log_file else BASE
+        diagnosis = diagnostic_engine.diagnose(
+            pipeline_id=pipeline["id"],
+            error_line=error_line,
+            log_tail=log_tail,
+            state_summary=state_snapshot,
+            pipeline_source_root=source_root,
+            events_dir=BASE / "pipeline_events",
+        )
+        if diagnosis:
+            _diag_count_this_run["n"] += 1
+            dashboard_client.post_diagnostic(diagnosis, error_line)
+    except Exception as e:
+        log.warning(f"[diagnostic] {pipeline['id']} diagnostic path failed: {e}")
+
+
 # ── Core health check loop ───────────────────────────────────────────────────
 
 def run_health_checks():
@@ -481,6 +529,7 @@ def run_health_checks():
             status = "error"
             if error_ln:
                 issues.append((pid, "error", error_ln))
+                _maybe_diagnose(p, error_ln, lines, health.get(pid, {}))
         elif overdue:
             status = "overdue"
             issues.append((pid, "warning", alerts[0] if alerts else "Overdue"))
