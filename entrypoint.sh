@@ -115,6 +115,11 @@ persist_file /app/guard_compliance/compliance_state.json  /app/data/guard_compli
 persist_file /app/guard_compliance/automation.log         /app/data/guard_compliance/automation.log
 persist_dir  /app/guard_compliance/bsis_data              /app/data/guard_compliance/bsis_data
 
+# QBR Generator (per-quarter generated PDFs + state)
+persist_file /app/qbr_generator/qbr_state.json   /app/data/qbr_generator/qbr_state.json
+persist_file /app/qbr_generator/automation.log   /app/data/qbr_generator/automation.log
+persist_dir  /app/qbr_generator/output           /app/data/qbr_generator/output
+
 echo "State persistence ready."
 
 # Decode OAuth tokens from environment variables (first run only)
@@ -210,6 +215,10 @@ PATH=/usr/local/bin:/usr/bin:/bin
 0 19 * * 5 root . /etc/container_env.sh && cd /app && python3 -m weekly_update.run_weekly_update 2>&1 | tee -a /var/log/ap-weekly.log > /proc/1/fd/1
 # Guard Compliance (daily 6 AM Pacific = 13:00 UTC — guard card/cert expiry tracker)
 0 13 * * * root . /etc/container_env.sh && cd /app && python3 -m guard_compliance.run_compliance 2>&1 | tee -a /var/log/ap-guard.log > /proc/1/fd/1
+# QBR Generator (1st Mon of Jan/Apr/Jul/Oct, 9 AM Pacific = 16:00 UTC).
+# Cron OR-s dom and dow when both are non-*, so we use dow=Mon + month limit
+# and shell-guard the day-of-month to 1-7 to get "first Monday only".
+0 16 * 1,4,7,10 1 root . /etc/container_env.sh && [ $(date +\%d | sed 's/^0*//') -le 7 ] && cd /app/qbr_generator && python3 run_qbr.py 2>&1 | tee -a /var/log/ap-qbr.log > /proc/1/fd/1
 # WCAS Dashboard heartbeat (every 30 min — decoupled from per-pipeline cadences,
 # so the dashboard rings reflect current state from disk every cycle even if
 # a pipeline is idle. Mirror of the Windows-side AmericalPatrolHeartbeatPush,
