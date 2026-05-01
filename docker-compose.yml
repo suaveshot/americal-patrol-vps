@@ -59,6 +59,9 @@ services:
       # for DAR / vehicle / incident pulls (different keys from guard compliance).
       - CONNECTEAM_CLIENT_ID=${CONNECTEAM_CLIENT_ID}
       - CONNECTEAM_CLIENT_SECRET=${CONNECTEAM_CLIENT_SECRET}
+      # Harbor Lights — Google Sheet ID + OAuth token (cut over from Excel 2026-04).
+      - HL_SHEET_ID=${HL_SHEET_ID}
+      - SHEETS_TOKEN_B64=${SHEETS_TOKEN_B64}
     restart: unless-stopped
 
 volumes:

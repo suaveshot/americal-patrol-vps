@@ -171,6 +171,15 @@ if [ ! -f /app/seo_automation/indexing_service_account.json ] && [ -n "$SEO_INDE
     echo "$SEO_INDEXING_SA_B64" | base64 -d > /app/seo_automation/indexing_service_account.json
     echo "Decoded indexing_service_account.json"
 fi
+# Harbor Lights — Google Sheets OAuth token (spreadsheets scope).
+# Replaces the local Excel-on-OneDrive write path. Mint via:
+#   cd "Harbor Lights" && python auth_setup.py    # on Sam's PC
+# then base64 the resulting sheets_token.json into SHEETS_TOKEN_B64.
+if [ ! -f "/app/Harbor Lights/sheets_token.json" ] && [ -n "$SHEETS_TOKEN_B64" ]; then
+    mkdir -p "/app/Harbor Lights"
+    echo "$SHEETS_TOKEN_B64" | base64 -d > "/app/Harbor Lights/sheets_token.json"
+    echo "Decoded sheets_token.json"
+fi
 
 # Persist container env vars to a file cron jobs can source.
 # Without this, cron runs in a minimal environment and pipelines see
