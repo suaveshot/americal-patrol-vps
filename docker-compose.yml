@@ -43,6 +43,12 @@ services:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - SOCIAL_DRIVE_FOLDER_ID=${SOCIAL_DRIVE_FOLDER_ID}
       - SOCIAL_DRIVE_TOKEN_B64=${SOCIAL_DRIVE_TOKEN_B64}
+      # SEO (DataForSEO + CrUX for keyword/competitor data, Google service account for indexing)
+      - DATAFORSEO_LOGIN=${DATAFORSEO_LOGIN}
+      - DATAFORSEO_PASSWORD=${DATAFORSEO_PASSWORD}
+      - CRUX_API_KEY=${CRUX_API_KEY}
+      - SEO_TOKEN_B64=${SEO_TOKEN_B64}
+      - SEO_INDEXING_SA_B64=${SEO_INDEXING_SA_B64}
     restart: unless-stopped
 
 volumes:

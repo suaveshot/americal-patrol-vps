@@ -94,6 +94,10 @@ persist_dir  /app/social_media_automation/media                     /app/data/so
 # GBP rotation index (used by social pipeline's GBP publisher)
 persist_file /app/gbp_automation/gbp_state.json  /app/data/gbp_automation/gbp_state.json
 
+# SEO state (alert dedup, last competitor scan, etc.)
+persist_file /app/seo_automation/seo_state.json  /app/data/seo_automation/seo_state.json
+persist_file /app/seo_automation/automation.log  /app/data/seo_automation/automation.log
+
 echo "State persistence ready."
 
 # Decode OAuth tokens from environment variables (first run only)
@@ -119,6 +123,16 @@ fi
 if [ ! -f /app/social_media_automation/social_drive_token.json ] && [ -n "$SOCIAL_DRIVE_TOKEN_B64" ]; then
     echo "$SOCIAL_DRIVE_TOKEN_B64" | base64 -d > /app/social_media_automation/social_drive_token.json
     echo "Decoded social_drive_token.json"
+fi
+# SEO — GA4 + GSC token (separate scopes: analytics.readonly + webmasters.readonly)
+if [ ! -f /app/seo_automation/seo_token.json ] && [ -n "$SEO_TOKEN_B64" ]; then
+    echo "$SEO_TOKEN_B64" | base64 -d > /app/seo_automation/seo_token.json
+    echo "Decoded seo_token.json"
+fi
+# SEO — Indexing API service account (separate auth path from user OAuth)
+if [ ! -f /app/seo_automation/indexing_service_account.json ] && [ -n "$SEO_INDEXING_SA_B64" ]; then
+    echo "$SEO_INDEXING_SA_B64" | base64 -d > /app/seo_automation/indexing_service_account.json
+    echo "Decoded indexing_service_account.json"
 fi
 
 # Persist container env vars to a file cron jobs can source.
@@ -167,6 +181,10 @@ PATH=/usr/local/bin:/usr/bin:/bin
 0 3 * * 1 root . /etc/container_env.sh && cd /app/social_media_automation && python3 calendar_preview.py 2>&1 | tee -a /var/log/ap-social.log > /proc/1/fd/1
 # Social Media engagement tracker (daily 10 AM Pacific = 17:00 UTC; pulls 48h-old post stats)
 0 17 * * * root . /etc/container_env.sh && cd /app/social_media_automation && python3 engagement_tracker.py 2>&1 | tee -a /var/log/ap-social.log > /proc/1/fd/1
+# SEO weekly analysis (Mon 7 AM Pacific = 14:00 UTC — must run BEFORE blog at 16:00 UTC)
+0 14 * * 1 root . /etc/container_env.sh && cd /app/seo_automation && python3 run_seo.py 2>&1 | tee -a /var/log/ap-seo.log > /proc/1/fd/1
+# SEO daily ranking alert (10 AM Pacific = 17:00 UTC)
+0 17 * * * root . /etc/container_env.sh && cd /app/seo_automation && python3 alert_checker.py 2>&1 | tee -a /var/log/ap-seo.log > /proc/1/fd/1
 # WCAS Dashboard heartbeat (every 30 min — decoupled from per-pipeline cadences,
 # so the dashboard rings reflect current state from disk every cycle even if
 # a pipeline is idle. Mirror of the Windows-side AmericalPatrolHeartbeatPush,
