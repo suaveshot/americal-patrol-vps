@@ -143,6 +143,11 @@ PATH=/usr/local/bin:/usr/bin:/bin
 0 16 * * * root . /etc/container_env.sh && cd /app && python3 review_engine/run_reviews.py --respond 2>&1 | tee -a /var/log/ap-reviews.log > /proc/1/fd/1
 # Review Engine - Competitor monitoring (1st of month 8 AM Pacific = 15:00 UTC)
 0 15 1 * * root . /etc/container_env.sh && cd /app && python3 review_engine/run_reviews.py --competitors 2>&1 | tee -a /var/log/ap-reviews.log > /proc/1/fd/1
+# WCAS Dashboard heartbeat (every 30 min — decoupled from per-pipeline cadences,
+# so the dashboard rings reflect current state from disk every cycle even if
+# a pipeline is idle. Mirror of the Windows-side AmericalPatrolHeartbeatPush,
+# but reads container truth instead of stale OneDrive state.)
+*/30 * * * * root . /etc/container_env.sh && cd /app && python3 -m shared_utils.push_heartbeat 2>&1 | tee -a /var/log/ap-heartbeat.log > /proc/1/fd/1
 CRONEOF
 chmod 0644 /etc/cron.d/ap
 cron
