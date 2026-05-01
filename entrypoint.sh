@@ -120,6 +120,21 @@ persist_file /app/qbr_generator/qbr_state.json   /app/data/qbr_generator/qbr_sta
 persist_file /app/qbr_generator/automation.log   /app/data/qbr_generator/automation.log
 persist_dir  /app/qbr_generator/output           /app/data/qbr_generator/output
 
+# Patrol Automation (Morning Reports) — generated PDFs land in MORNING_DIR which
+# both patrol_automation/main.py writes and Harbor Lights/hl_update.py reads.
+# Persist as a dir so PDFs survive redeploys (Harbor Lights tracks 'processed_pdfs.json'
+# to avoid re-processing).
+mkdir -p "/app/Americal Patrol Morning Reports"
+persist_dir  "/app/Americal Patrol Morning Reports"  /app/data/morning_reports
+persist_file /app/patrol_automation/automation.log   /app/data/patrol_automation/automation.log
+
+# Harbor Lights — Excel tracker + processed PDF log. Excel is the canonical
+# data store the parking_audit reads to draft violation letters.
+persist_file "/app/Harbor Lights/Harbor Lights Guest Parking UPDATED.xlsx"  "/app/data/harbor_lights/Harbor Lights Guest Parking UPDATED.xlsx"
+persist_file "/app/Harbor Lights/processed_pdfs.json"  /app/data/harbor_lights/processed_pdfs.json
+persist_file "/app/Harbor Lights/harbor_lights.log"    /app/data/harbor_lights/harbor_lights.log
+persist_file "/app/Harbor Lights/parking_audit.log"    /app/data/harbor_lights/parking_audit.log
+
 echo "State persistence ready."
 
 # Decode OAuth tokens from environment variables (first run only)
@@ -219,6 +234,20 @@ PATH=/usr/local/bin:/usr/bin:/bin
 # Cron OR-s dom and dow when both are non-*, so we use dow=Mon + month limit
 # and shell-guard the day-of-month to 1-7 to get "first Monday only".
 0 16 * 1,4,7,10 1 root . /etc/container_env.sh && [ $(date +\%d | sed 's/^0*//') -le 7 ] && cd /app/qbr_generator && python3 run_qbr.py 2>&1 | tee -a /var/log/ap-qbr.log > /proc/1/fd/1
+# ─── Morning Reports + Harbor Lights — DISABLED PENDING SAM VERIFICATION ───
+# These send client-facing PDFs and parking violation drafts. Code + state are
+# now in the container, but the cron lines stay commented until Sam manually runs:
+#   docker exec americal-patrol-automations-1 python3 -m patrol_automation.main --check
+#   docker exec americal-patrol-automations-1 sh -c 'cd /app && python3 "Harbor Lights/hl_update.py" --dry-run'
+# ...and confirms the output matches the Windows TS run, then disables the
+# Windows AmericalPatrolMorningReports task and uncomments below.
+#
+# Patrol — daily 7 AM Pacific = 14:00 UTC
+#0 14 * * * root . /etc/container_env.sh && cd /app && python3 -m patrol_automation.main 2>&1 | tee -a /var/log/ap-patrol.log > /proc/1/fd/1
+# Harbor Lights — daily 7:30 AM Pacific = 14:30 UTC (after morning reports finish)
+#30 14 * * * root . /etc/container_env.sh && cd "/app/Harbor Lights" && python3 hl_update.py 2>&1 | tee -a /var/log/ap-hl.log > /proc/1/fd/1
+# Harbor Lights parking audit — daily 8 AM Pacific = 15:00 UTC (drafts violation letters)
+#0 15 * * * root . /etc/container_env.sh && cd "/app/Harbor Lights" && python3 parking_audit.py 2>&1 | tee -a /var/log/ap-hl.log > /proc/1/fd/1
 # WCAS Dashboard heartbeat (every 30 min — decoupled from per-pipeline cadences,
 # so the dashboard rings reflect current state from disk every cycle even if
 # a pipeline is idle. Mirror of the Windows-side AmericalPatrolHeartbeatPush,

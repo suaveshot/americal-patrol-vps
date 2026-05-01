@@ -1,0 +1,8 @@
+{
+  "base_dir": "C:\\Users\\bball\\OneDrive\\Desktop\\Americal Patrol\\Harbor Lights",
+  "guest_parking_pdf": "Harbor Lights HOA Guest Parking_January_01_2026_to_March_20_2026.pdf",
+  "incident_pdf": "Harbor Lights HOA Incident Report_January_05_2026_to_March_20_2026.pdf",
+  "guest_parking_output": "extracted_guest_parking.json",
+  "incidents_output": "extracted_incidents.json",
+  "excel_output": "Harbor Lights Guest Parking UPDATED.xlsx"
+}

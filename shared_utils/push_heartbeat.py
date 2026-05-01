@@ -132,6 +132,23 @@ PIPELINES: dict[str, dict] = {
         "state": DATA_DIR / "qbr_generator" / "qbr_state.json",
         "health_keys": ("qbr_generator", "qbr"),
     },
+    # Patrol Automation (Morning Reports) — pipeline_id matches the dashboard
+    # catalog's `daily_reports` canonical id (legacy_aliases includes 'patrol').
+    # The cron line stays commented in entrypoint.sh until Sam verifies the
+    # container produces the same output as the Windows TS task — once that
+    # cron is enabled, this heartbeat will pick up /var/log/ap-patrol.log.
+    "daily_reports": {
+        "name": "Morning Reports",
+        "log": ["ap-patrol.log"],
+        "state": DATA_DIR / "patrol_automation" / "automation.log",
+        "health_keys": ("patrol", "daily_reports"),
+    },
+    "harbor_lights": {
+        "name": "Harbor Lights Parking",
+        "log": ["ap-hl.log"],
+        "state": DATA_DIR / "harbor_lights" / "processed_pdfs.json",
+        "health_keys": ("harbor_lights",),
+    },
 }
 
 

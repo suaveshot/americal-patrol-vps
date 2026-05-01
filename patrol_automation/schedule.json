@@ -1,0 +1,34 @@
+{
+  "_note": "Shift times per account. clock_in/clock_out in 24h format. overnight=true means shift crosses midnight.",
+  "_routes": {
+    "ventura_patrol": "Harbor Lights HOA, Simpson Strong Tie, Maulhardt Farm House, Assisted Home Health, 400 S Ventura (vehicle), Peninsula Yacht Marina",
+    "la_patrol": "Industry Centre, Buena Park Business Center, Pioneer Blvd, Manhattan Plaza, Nexon, John Reed, Towers Industrial Park, Baldwin Place"
+  },
+  "accounts": {
+    "400 S Ventura":          [{ "clock_in": "09:00", "clock_out": "17:00", "overnight": false },
+                               { "clock_in": "21:00", "clock_out": "04:00", "overnight": true  }],
+    "Assisted Home Health":   [{ "clock_in": "21:00", "clock_out": "04:00", "overnight": true  }],
+    "Baldwin Place":          [{ "clock_in": "19:00", "clock_out": "03:00", "overnight": true  }],
+    "Brea Marketplace":       [{ "clock_in": "21:00", "clock_out": "05:00", "overnight": true  }],
+    "Buena Park Business Center": [{ "clock_in": "21:00", "clock_out": "05:00", "overnight": true }],
+    "Harbor Lights HOA":      [{ "clock_in": "21:00", "clock_out": "04:00", "overnight": true  }],
+    "Industry Centre":        [{ "clock_in": "21:00", "clock_out": "05:00", "overnight": true  }],
+    "John Reed":              [{ "clock_in": "21:00", "clock_out": "05:00", "overnight": true  }],
+    "LA Patrol":              [{ "clock_in": "21:00", "clock_out": "05:00", "overnight": true  }],
+    "LAX":                    [{ "clock_in": "06:00", "clock_out": "18:00", "overnight": false },
+                               { "clock_in": "18:00", "clock_out": "06:00", "overnight": true  }],
+    "Manhattan Plaza":        [{ "clock_in": "21:00", "clock_out": "05:00", "overnight": true  }],
+    "Maulhardt Farm House":   [{ "clock_in": "21:00", "clock_out": "04:00", "overnight": true  }],
+    "Nexon":                  [{ "clock_in": "21:00", "clock_out": "05:00", "overnight": true  }],
+    "PCYC":                   [{ "clock_in": "22:00", "clock_out": "06:00", "overnight": true  }],
+    "Pacific Corinthian Yacht Club": [{ "clock_in": "22:00", "clock_out": "06:00", "overnight": true }],
+    "Peninsula Yacht Marina": [{ "clock_in": "21:00", "clock_out": "04:30", "overnight": true  }],
+    "Pioneer Blvd":           [{ "clock_in": "21:00", "clock_out": "05:00", "overnight": true  }],
+    "Simpson Strong Tie":     [{ "clock_in": "21:00", "clock_out": "04:00", "overnight": true  }],
+    "Stadium Plaza":          [{ "clock_in": "05:00", "clock_out": "17:00", "overnight": false },
+                               { "clock_in": "17:00", "clock_out": "05:00", "overnight": true  }],
+    "Towers Industrial Park": [{ "clock_in": "21:00", "clock_out": "05:00", "overnight": true  }],
+    "United Pacific Bank":    [{ "clock_in": "09:00", "clock_out": "17:00", "overnight": false }],
+    "Ventura Patrol":         [{ "clock_in": "21:00", "clock_out": "04:00", "overnight": true  }]
+  }
+}

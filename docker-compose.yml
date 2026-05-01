@@ -55,6 +55,10 @@ services:
       - GHL_CATEGORY_ID=${GHL_CATEGORY_ID}
       # Guard Compliance (Connecteam custom fields = officer cert data)
       - CONNECTEAM_API_KEY=${CONNECTEAM_API_KEY}
+      # Patrol Automation (Morning Reports) — Connecteam API client credentials
+      # for DAR / vehicle / incident pulls (different keys from guard compliance).
+      - CONNECTEAM_CLIENT_ID=${CONNECTEAM_CLIENT_ID}
+      - CONNECTEAM_CLIENT_SECRET=${CONNECTEAM_CLIENT_SECRET}
     restart: unless-stopped
 
 volumes:

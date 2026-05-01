@@ -9,3 +9,11 @@ python-docx
 faster-whisper
 SpeechRecognition
 pyairtable
+# Patrol Automation (morning reports) + Harbor Lights — PDF parsing, branded PDF
+# generation, Excel writes, OCR fallback for image-only DARs.
+pdfplumber
+PyMuPDF
+xhtml2pdf
+Pillow
+pytesseract
+openpyxl
