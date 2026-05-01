@@ -108,6 +108,12 @@ PIPELINES: dict[str, dict] = {
         "state": DATA_DIR / "seo_automation" / "seo_state.json",
         "health_keys": ("seo",),
     },
+    "blog": {
+        "name": "Blog Post",
+        "log": ["ap-blog.log"],
+        "state": DATA_DIR / "blog_post_automation" / "blog_state.json",
+        "health_keys": ("blog",),
+    },
 }
 
 

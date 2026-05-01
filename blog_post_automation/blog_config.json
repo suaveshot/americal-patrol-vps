@@ -1,0 +1,240 @@
+{
+  "topics": [
+    {
+      "city": "Oxnard",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Ventura",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Camarillo",
+      "account_type": "Retail"
+    },
+    {
+      "city": "Port Hueneme",
+      "account_type": "Industrial"
+    },
+    {
+      "city": "Santa Paula",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Ojai",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Long Beach",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Torrance",
+      "account_type": "Industrial"
+    },
+    {
+      "city": "Downey",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Norwalk",
+      "account_type": "Retail"
+    },
+    {
+      "city": "Anaheim",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Huntington Beach",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Oxnard",
+      "account_type": "Industrial"
+    },
+    {
+      "city": "Ventura",
+      "account_type": "Retail"
+    },
+    {
+      "city": "Camarillo",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Port Hueneme",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Santa Paula",
+      "account_type": "Retail"
+    },
+    {
+      "city": "Ojai",
+      "account_type": "Industrial"
+    },
+    {
+      "city": "Lakewood",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Carson",
+      "account_type": "Industrial"
+    },
+    {
+      "city": "Whittier",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Santa Ana",
+      "account_type": "Industrial"
+    },
+    {
+      "city": "Costa Mesa",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Garden Grove",
+      "account_type": "Retail"
+    },
+    {
+      "city": "Oxnard",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Ventura",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Camarillo",
+      "account_type": "Industrial"
+    },
+    {
+      "city": "Port Hueneme",
+      "account_type": "Retail"
+    },
+    {
+      "city": "Santa Paula",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Ojai",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Bellflower",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Cerritos",
+      "account_type": "Retail"
+    },
+    {
+      "city": "La Mirada",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Fullerton",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Buena Park",
+      "account_type": "Retail"
+    },
+    {
+      "city": "Westminster",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Oxnard",
+      "account_type": "Retail"
+    },
+    {
+      "city": "Ventura",
+      "account_type": "Industrial"
+    },
+    {
+      "city": "Camarillo",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Port Hueneme",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Santa Paula",
+      "account_type": "Industrial"
+    },
+    {
+      "city": "Ojai",
+      "account_type": "Retail"
+    },
+    {
+      "city": "Compton",
+      "account_type": "Industrial"
+    },
+    {
+      "city": "Pico Rivera",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Los Alamitos",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Cypress",
+      "account_type": "Commercial"
+    },
+    {
+      "city": "Seal Beach",
+      "account_type": "HOA"
+    },
+    {
+      "city": "Stanton",
+      "account_type": "Retail"
+    }
+  ],
+  "priority_topics": [],
+  "keyword_intelligence": {},
+  "approved_sources": [
+    {
+      "name": "California DOJ Crime Statistics",
+      "url": "https://oag.ca.gov/crime",
+      "use_for": "California-specific crime data and trends"
+    },
+    {
+      "name": "California DOJ OpenJustice",
+      "url": "https://openjustice.doj.ca.gov/exploration/crime-statistics",
+      "use_for": "City and county-level crime breakdowns in California"
+    },
+    {
+      "name": "FBI Crime Data Explorer",
+      "url": "https://cde.ucr.cjis.gov/",
+      "use_for": "National and local crime trend data"
+    },
+    {
+      "name": "Bureau of Labor Statistics - Security Guards",
+      "url": "https://www.bls.gov/ooh/protective-service/security-guards.htm",
+      "use_for": "Security industry employment and outlook statistics"
+    },
+    {
+      "name": "California Bureau of Security and Investigative Services",
+      "url": "https://www.bsis.ca.gov/",
+      "use_for": "California PPO licensing requirements and security regulations"
+    },
+    {
+      "name": "OSHA - Workplace Safety",
+      "url": "https://www.osha.gov/workers/industries",
+      "use_for": "Industrial and warehouse workplace safety context"
+    },
+    {
+      "name": "Ventura County Sheriff's Office",
+      "url": "https://www.venturasheriff.org/",
+      "use_for": "Local law enforcement context for Ventura County"
+    },
+    {
+      "name": "California Legislative Information",
+      "url": "https://leginfo.legislature.ca.gov/",
+      "use_for": "California security guard and patrol regulations"
+    }
+  ]
+}
