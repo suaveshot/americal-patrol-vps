@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 # tesseract-ocr: optional fallback for image-only Connecteam DARs (patrol_automation/ocr_fallback.py)
-# poppler-utils: PyMuPDF / pdfplumber image rendering for OCR + PDF-to-image conversions
+# poppler-utils: PyMuPDF / pdfplumber image rendering for OCR + PDF-to-image conversions [larry-smoke-test-2]
 # fonts-dejavu: branded_pdf.py timeline rendering uses Pillow ImageFont — needs default fonts present
 # gcc/g++/libcairo2-dev/pkg-config: pycairo (transitive: xhtml2pdf -> svglib -> rlpycairo) ships sdist-only and needs C build tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
